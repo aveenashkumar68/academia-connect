@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/layout/ProtectedRoute";
+import Landing from "@/pages/landing/Landing";
 import Login from "@/pages/auth/Login";
 import AdminDashboard from "@/pages/dashboard/AdminDashboard";
 import FacultyList from "@/pages/dashboard/FacultyList";
@@ -28,22 +29,98 @@ const App = () => <QueryClientProvider client={queryClient}>
     }}>
       <AuthProvider>
         <Routes>
-          <Route path="/" element={<Navigate to="/login" replace />} />
-          <Route path="/login" element={<Login />} />
+     {/* Default redirect */}
+      <Route path="/" element={<Navigate to="/home" replace />} />
 
-          <Route path="/dashboard/admin" element={<ProtectedRoute allowedRoles={["super-admin"]}><AdminDashboard /></ProtectedRoute>} />
-          <Route path="/dashboard/admin/faculty" element={<ProtectedRoute allowedRoles={["super-admin"]}><FacultyList /></ProtectedRoute>} />
-          <Route path="/dashboard/admin/users" element={<ProtectedRoute allowedRoles={["super-admin"]}><StudentList /></ProtectedRoute>} />
-          <Route path="/dashboard/admin/departments" element={<ProtectedRoute allowedRoles={["super-admin"]}><DepartmentList /></ProtectedRoute>} />
-          <Route path="/dashboard/admin/user/:id" element={<ProtectedRoute allowedRoles={["super-admin"]}><UserProfile /></ProtectedRoute>} />
-          <Route path="/dashboard/admin/settings" element={<ProtectedRoute allowedRoles={["super-admin"]}><AdminSettings /></ProtectedRoute>} />
-          <Route path="/dashboard/faculty" element={<ProtectedRoute allowedRoles={["admin"]}><FacultyDashboard /></ProtectedRoute>} />
-          <Route path="/dashboard/student" element={<ProtectedRoute allowedRoles={["student"]}><StudentDashboard /></ProtectedRoute>} />
-          <Route path="/dashboard/industry" element={<ProtectedRoute allowedRoles={["industry_partner"]}><IndustryDashboard /></ProtectedRoute>} />
-          <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
+      {/* Public Pages */}
+     <Route path="/home" element={<Landing />} />
+     <Route path="/login" element={<Login />} />
 
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+      {/* Protected Routes */}
+    <Route
+     path="/dashboard/admin"
+      element={
+      <ProtectedRoute allowedRoles={["super-admin"]}>
+        <AdminDashboard />
+      </ProtectedRoute>
+     }
+     />
+
+    <Route
+    path="/dashboard/admin/faculty"
+    element={
+      <ProtectedRoute allowedRoles={["super-admin"]}>
+        <FacultyList />
+      </ProtectedRoute>
+    }
+   />
+
+  <Route
+    path="/dashboard/admin/users"
+    element={
+      <ProtectedRoute allowedRoles={["super-admin"]}>
+        <StudentList />
+      </ProtectedRoute>
+     }
+   />
+
+      <Route
+     path="/dashboard/admin/departments"
+      element={
+        <ProtectedRoute allowedRoles={["super-admin"]}>
+        <DepartmentList />
+       </ProtectedRoute>
+    }
+  />
+
+  <Route
+    path="/dashboard/admin/user/:id"
+    element={
+      <ProtectedRoute allowedRoles={["super-admin"]}>
+        <UserProfile />
+      </ProtectedRoute>
+    }
+  />
+
+  <Route
+    path="/dashboard/admin/settings"
+    element={
+      <ProtectedRoute allowedRoles={["super-admin"]}>
+        <AdminSettings />
+      </ProtectedRoute>
+    }
+  />
+
+  <Route
+    path="/dashboard/faculty"
+    element={
+      <ProtectedRoute allowedRoles={["admin"]}>
+        <FacultyDashboard />
+      </ProtectedRoute>
+    }
+  />
+
+  <Route
+    path="/dashboard/student"
+    element={
+      <ProtectedRoute allowedRoles={["student"]}>
+        <StudentDashboard />
+      </ProtectedRoute>
+    }
+  />
+
+  <Route
+    path="/dashboard/industry"
+    element={
+      <ProtectedRoute allowedRoles={["industry_partner"]}>
+        <IndustryDashboard />
+      </ProtectedRoute>
+    }
+  />
+
+  <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
+  <Route path="*" element={<NotFound />} />
+</Routes>
       </AuthProvider>
     </BrowserRouter>
   </TooltipProvider>
