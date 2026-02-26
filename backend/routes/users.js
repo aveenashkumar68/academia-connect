@@ -40,7 +40,7 @@ router.post('/admin', protect, authorize('super-admin'), async (req, res) => {
 
         if (user) {
             // Send email with credentials
-            await sendCredentialsEmail(email, 'Admin', email, unhashedPassword);
+            const emailSent = await sendCredentialsEmail(email, 'Admin', email, unhashedPassword);
 
             // Auto-create notification
             await Notification.create({
@@ -54,7 +54,10 @@ router.post('/admin', protect, authorize('super-admin'), async (req, res) => {
                 _id: user._id,
                 email: user.email,
                 role: user.role,
-                message: 'Admin account created and credentials sent to email',
+                message: emailSent
+                    ? 'Admin account created and credentials sent to email'
+                    : 'Admin account created but failed to send credentials email. Please check SMTP configuration.',
+                emailSent,
             });
         } else {
             res.status(400).json({ message: 'Invalid user data' });
@@ -95,7 +98,7 @@ router.post('/student', protect, authorize('admin'), async (req, res) => {
 
         if (user) {
             // Send email with credentials
-            await sendCredentialsEmail(email, 'Student', email, unhashedPassword);
+            const emailSent = await sendCredentialsEmail(email, 'Student', email, unhashedPassword);
 
             // Auto-create notification
             const creator = await User.findById(req.user.id).select('name');
@@ -110,7 +113,10 @@ router.post('/student', protect, authorize('admin'), async (req, res) => {
                 _id: user._id,
                 email: user.email,
                 role: user.role,
-                message: 'Student account created and credentials sent to email',
+                message: emailSent
+                    ? 'Student account created and credentials sent to email'
+                    : 'Student account created but failed to send credentials email. Please check SMTP configuration.',
+                emailSent,
             });
         } else {
             res.status(400).json({ message: 'Invalid user data' });

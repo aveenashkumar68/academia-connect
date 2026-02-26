@@ -20,7 +20,7 @@ const httpServer = createServer(app);
 // Socket.IO setup
 const io = new SocketIOServer(httpServer, {
     cors: {
-        origin: '*',
+        origin: 'https://academia-connect-kappa.vercel.app/',
         methods: ['GET', 'POST'],
     },
 });

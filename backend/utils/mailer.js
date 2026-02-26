@@ -14,6 +14,11 @@ const transporter = nodemailer.createTransport({
     },
 });
 
+// Verify SMTP connection on startup
+transporter.verify()
+    .then(() => console.log('✅ SMTP connection verified successfully'))
+    .catch((err) => console.error('❌ SMTP connection failed:', err.message));
+
 export const sendCredentialsEmail = async (to, role, email, password) => {
     try {
         const info = await transporter.sendMail({
