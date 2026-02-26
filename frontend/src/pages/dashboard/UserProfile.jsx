@@ -33,7 +33,10 @@ export default function UserProfile() {
   if (loading) return <DashboardLayout><div className="text-center py-20">Loading...</div></DashboardLayout>;
   if (!user) return <DashboardLayout><div className="text-center py-20">User not found</div></DashboardLayout>;
 
-  const initials = user.name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || user.role[0].toUpperCase();
+  const displayName = user.name || user.email?.split('@')[0] || 'User';
+  const initials = user.name
+    ? user.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
+    : user.email?.charAt(0).toUpperCase() || 'U';
 
   return <DashboardLayout>
     <div className="space-y-6">
@@ -55,7 +58,7 @@ export default function UserProfile() {
                 {initials}
               </AvatarFallback>
             </Avatar>
-            <h3 className="text-xl font-bold text-foreground mb-1">{user.name || 'N/A'}</h3>
+            <h3 className="text-xl font-bold text-foreground mb-1">{displayName}</h3>
             <p className="text-sm font-medium text-primary uppercase tracking-wider mb-4">
               {user.role.replace('_', ' ')}
             </p>

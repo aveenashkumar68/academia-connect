@@ -23,6 +23,8 @@ const userSchema = new mongoose.Schema({
   year: { type: String }, // For student
   regNo: { type: String }, // For student
   domain: { type: String }, // For student
+  address: { type: String },
+  profilePicture: { type: String }, // Cloudinary URL
 }, { timestamps: true });
 
 export default mongoose.model('User', userSchema);

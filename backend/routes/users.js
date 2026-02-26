@@ -1,6 +1,7 @@
 import express from 'express';
 import bcrypt from 'bcryptjs';
 import User from '../models/User.js';
+import Notification from '../models/Notification.js';
 import { protect, authorize } from '../middleware/auth.js';
 import { sendCredentialsEmail } from '../utils/mailer.js';
 import crypto from 'crypto';
@@ -41,6 +42,14 @@ router.post('/admin', protect, authorize('super-admin'), async (req, res) => {
             // Send email with credentials
             await sendCredentialsEmail(email, 'Admin', email, unhashedPassword);
 
+            // Auto-create notification
+            await Notification.create({
+                type: 'user_created',
+                message: `New faculty member ${name || email} has been added`,
+                actorName: 'Super Admin',
+                actorRole: 'super-admin',
+            });
+
             res.status(201).json({
                 _id: user._id,
                 email: user.email,
@@ -61,7 +70,7 @@ router.post('/admin', protect, authorize('super-admin'), async (req, res) => {
 // @access  Private / Admin
 router.post('/student', protect, authorize('admin'), async (req, res) => {
     try {
-        const { email, phone, department, year, regNo, domain } = req.body;
+        const { email, name, phone, department, year, regNo, domain } = req.body;
 
         const userExists = await User.findOne({ email });
         if (userExists) {
@@ -76,6 +85,7 @@ router.post('/student', protect, authorize('admin'), async (req, res) => {
             email,
             password: hashedPassword,
             role: 'student',
+            name,
             phone,
             department,
             year,
@@ -86,6 +96,15 @@ router.post('/student', protect, authorize('admin'), async (req, res) => {
         if (user) {
             // Send email with credentials
             await sendCredentialsEmail(email, 'Student', email, unhashedPassword);
+
+            // Auto-create notification
+            const creator = await User.findById(req.user.id).select('name');
+            await Notification.create({
+                type: 'user_created',
+                message: `New student ${email} has been added by ${creator?.name || 'faculty'}`,
+                actorName: creator?.name || 'Faculty',
+                actorRole: 'admin',
+            });
 
             res.status(201).json({
                 _id: user._id,
@@ -126,13 +145,13 @@ router.get('/stats', protect, authorize('super-admin'), async (req, res) => {
     try {
         const studentCount = await User.countDocuments({ role: 'student' });
         const facultyCount = await User.countDocuments({ role: 'admin' });
-        
+
         // Count unique departments
         const departments = await User.distinct('department', { department: { $ne: null, $ne: '' } });
         const departmentCount = departments.length;
-        
+
         // Activities could be anything, but for now we'll return a placeholder or 0
-        const activityCount = 0; 
+        const activityCount = 0;
 
         res.json({
             students: studentCount,
@@ -183,21 +202,25 @@ router.get('/departments/all', protect, authorize('super-admin'), async (req, re
     try {
         const departmentsWithDomains = await User.aggregate([
             { $match: { department: { $ne: null, $ne: '' } } },
-            { $group: {
-                _id: "$department",
-                domains: { $addToSet: "$domain" }
-            }},
-            { $project: {
-                name: "$_id",
-                domains: {
-                    $filter: {
-                        input: "$domains",
-                        as: "domain",
-                        cond: { $and: [{ $ne: ["$$domain", null] }, { $ne: ["$$domain", ""] }] }
-                    }
-                },
-                _id: 0
-            }}
+            {
+                $group: {
+                    _id: "$department",
+                    domains: { $addToSet: "$domain" }
+                }
+            },
+            {
+                $project: {
+                    name: "$_id",
+                    domains: {
+                        $filter: {
+                            input: "$domains",
+                            as: "domain",
+                            cond: { $and: [{ $ne: ["$$domain", null] }, { $ne: ["$$domain", ""] }] }
+                        }
+                    },
+                    _id: 0
+                }
+            }
         ]);
         res.json(departmentsWithDomains);
     } catch (error) {
@@ -211,9 +234,9 @@ router.get('/departments/all', protect, authorize('super-admin'), async (req, re
 // @access  Private / Super-Admin
 router.get('/domain/:domain', protect, authorize('super-admin'), async (req, res) => {
     try {
-        const students = await User.find({ 
-            role: 'student', 
-            domain: req.params.domain 
+        const students = await User.find({
+            role: 'student',
+            domain: req.params.domain
         }).select('-password');
         res.json(students);
     } catch (error) {

@@ -128,34 +128,34 @@ export default function DepartmentList() {
 
   return <DashboardLayout>
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-3 sm:gap-4">
           {(selectedDept || selectedDomain) && (
             <button
               onClick={resetView}
-              className="p-2 hover:bg-slate-100 rounded-full transition-colors"
+              className="p-2 hover:bg-slate-100 rounded-full transition-colors shrink-0"
             >
               <ArrowLeft className="h-5 w-5" />
             </button>
           )}
-          <div>
-            <h2 className="text-3xl font-bold tracking-tight text-foreground">
+          <div className="min-w-0">
+            <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight text-foreground truncate">
               {selectedDomain ? `Experts in ${selectedDomain}` : selectedDept ? `${selectedDept.name} Domains` : "Institutional Departments"}
             </h2>
-            <p className="text-muted-foreground">
-              {selectedDomain ? "Students with high proficiency in this domain" : selectedDept ? "Browse academic specialization areas" : "Overview of all academic departments"}
+            <p className="text-sm text-muted-foreground truncate">
+              {selectedDomain ? "Students with high proficiency" : selectedDept ? "Browse specialization areas" : "Overview of all departments"}
             </p>
           </div>
         </div>
         {isSuperAdmin && !selectedDept && !selectedDomain && (
-          <Button onClick={openAddDeptDialog} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+          <Button onClick={openAddDeptDialog} className="bg-primary hover:bg-primary/90 text-primary-foreground self-start sm:self-auto shrink-0">
             <Plus className="h-4 w-4 mr-2" /> Add Department
           </Button>
         )}
       </div>
 
       {!selectedDept ? (
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {departments.length === 0 ? (
             <div className="col-span-full text-center py-20 text-muted-foreground bg-white rounded-xl shadow-sm border-none">
               No departments found
@@ -194,7 +194,7 @@ export default function DepartmentList() {
           )}
         </div>
       ) : !selectedDomain ? (
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {selectedDept.domains.length === 0 ? (
             <div className="col-span-full text-center py-20 text-muted-foreground bg-white rounded-xl shadow-sm border-none">
               No specialized domains listed for this department

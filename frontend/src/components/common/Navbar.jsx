@@ -1,136 +1,106 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { FiMap, FiLogIn } from 'react-icons/fi';
-import { useNavigate } from "react-router-dom";
-import '../../styles/Navbar.css'
+import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 
 function Navbar() {
-  const navigate = useNavigate();
-  const [isScrolled, setIsScrolled] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const navigate = useNavigate();
+    const [isOpen, setIsOpen] = useState(false);
+    const [scrolled, setScrolled] = useState(false);
 
-  useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 20);
+    useEffect(() => {
+        const handleScroll = () => {
+            setScrolled(window.scrollY > 20);
+        };
+        window.addEventListener('scroll', handleScroll);
+        return () => window.removeEventListener('scroll', handleScroll);
+    }, []);
+
+    const navLinks = [
+        { label: 'Home', href: '#home' },
+        { label: 'About', href: '#about' },
+        { label: 'Departments', href: '#departments' },
+        { label: 'Impact', href: '#impact' },
+        { label: 'Contact', href: '#contact' },
+    ];
+
+    const handleNavClick = (e, href) => {
+        e.preventDefault();
+        setIsOpen(false);
+        const el = document.querySelector(href);
+        if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
     };
 
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+    return (
+        <nav className={`navbar ${scrolled ? 'navbar-scrolled' : ''}`}>
+            <div className="navbar-container">
+                <a href="#home" className="navbar-brand" onClick={(e) => handleNavClick(e, '#home')}>
+                    Project Mayaa
+                </a>
 
-  // ✅ ONLY ONE smooth scroll function
-  const handleSmoothScroll = (e, targetId) => {
-    e.preventDefault();
+                {/* Desktop Nav */}
+                <div className="navbar-links">
+                    {navLinks.map((link) => (
+                        <a
+                            key={link.label}
+                            href={link.href}
+                            className="navbar-link"
+                            onClick={(e) => handleNavClick(e, link.href)}
+                        >
+                            {link.label}
+                        </a>
+                    ))}
+                    <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        className="btn btn-primary btn-small"
+                        onClick={() => navigate('/login')}
+                    >
+                        Login
+                    </motion.button>
+                </div>
 
-    if (isMobileMenuOpen) {
-      setIsMobileMenuOpen(false);
-    }
+                {/* Mobile Menu Button */}
+                <button
+                    className="navbar-toggle"
+                    onClick={() => setIsOpen(!isOpen)}
+                    aria-label="Toggle menu"
+                >
+                    <span className={`hamburger ${isOpen ? 'hamburger-open' : ''}`}></span>
+                </button>
+            </div>
 
-    const element = document.getElementById(targetId);
-
-    if (element) {
-      element.scrollIntoView({
-        behavior: 'smooth',
-        block: 'start',
-      });
-    } else {
-      console.warn(`Element with id "${targetId}" not found`);
-    }
-  };
-
-  const navItems = [
-    { name: 'Home', id: 'home' },
-    { name: 'Departments', id: 'departments' },
-    { name: 'Impact', id: 'impact' }
-  ];
-
-  return (
-    <header className={`navbar ${isScrolled ? 'navbar-scrolled' : ''}`}>
-      <div className="navbar-container">
-
-        {/* Logo */}
-        <motion.a 
-          href="#home"
-          className="navbar-logo"
-          onClick={(e) => handleSmoothScroll(e, 'home')}
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.5 }}
-        >
-          <span className="navbar-logo-icon">
-            <FiMap />
-          </span>
-
-          <div className="navbar-logo-text">
-            <span className="navbar-logo-main">
-              Project<span className="navbar-logo-accent">Mayaa</span>
-            </span>
-            <span className="navbar-logo-tagline">
-              Engineering • Business • Innovation
-            </span>
-          </div>
-        </motion.a>
-
-        {/* Desktop Navigation */}
-        <nav className="navbar-desktop">
-          {navItems.map((item, index) => (
-            <motion.a
-              key={index}
-              href={`#${item.id}`}
-              className="navbar-link"
-              onClick={(e) => handleSmoothScroll(e, item.id)}
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: index * 0.1 }}
-            >
-              {item.name}
-            </motion.a>
-          ))}
+            {/* Mobile Nav */}
+            <AnimatePresence>
+                {isOpen && (
+                    <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="navbar-mobile"
+                    >
+                        {navLinks.map((link) => (
+                            <a
+                                key={link.label}
+                                href={link.href}
+                                className="navbar-mobile-link"
+                                onClick={(e) => handleNavClick(e, link.href)}
+                            >
+                                {link.label}
+                            </a>
+                        ))}
+                        <button
+                            className="btn btn-primary btn-small navbar-mobile-login"
+                            onClick={() => { setIsOpen(false); navigate('/login'); }}
+                        >
+                            Login
+                        </button>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </nav>
-
-        {/* Login Buttons */}
-        <div style={{ display: 'flex', alignItems: 'center' }}>
-
-          {/* Mobile Login */}
-          <motion.a
-            href="/login"
-            className="navbar-mobile-login-btn"
-            onClick={(e) => {
-              e.preventDefault();
-              navigate("/login");
-            }}
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5 }}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            <FiLogIn className="navbar-login-icon" />
-            <span>Login</span>
-          </motion.a>
-
-          {/* Desktop Login */}
-          <motion.a
-            href="/login"
-            className="navbar-login"
-            onClick={(e) => {
-              e.preventDefault();
-              navigate("/login");
-            }}
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5 }}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            <FiLogIn className="navbar-login-icon" />
-            <span className="navbar-login-text">Login</span>
-          </motion.a>
-
-        </div>
-      </div>
-    </header>
-  );
+    );
 }
 
 export default Navbar;

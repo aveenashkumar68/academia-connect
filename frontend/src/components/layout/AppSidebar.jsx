@@ -1,7 +1,7 @@
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar";
-import { LayoutDashboard, MessageSquare, Users, Building2, GraduationCap, Briefcase, BarChart3, LogOut, Globe } from "lucide-react";
+import { LayoutDashboard, MessageSquare, Users, Building2, GraduationCap, Briefcase, LogOut, Globe, Newspaper } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 const navByRole = {
   "super-admin": [{
@@ -21,13 +21,13 @@ const navByRole = {
     icon: Users,
     path: "/dashboard/admin/faculty"
   }, {
-    label: "Analytics",
-    icon: BarChart3,
-    path: "/dashboard/admin/analytics"
+    label: "Community",
+    icon: Newspaper,
+    path: "/community"
   }, {
-    label: "Settings",
-    icon: Building2, // Reusing icon, ideally something like Settings icon
-    path: "/dashboard/admin/settings"
+    label: "Chat",
+    icon: MessageSquare,
+    path: "/chat"
   }],
   admin: [{
     label: "Dashboard",
@@ -37,6 +37,10 @@ const navByRole = {
     label: "Students",
     icon: GraduationCap,
     path: "/dashboard/faculty/students"
+  }, {
+    label: "Community",
+    icon: Newspaper,
+    path: "/community"
   }, {
     label: "Chat",
     icon: MessageSquare,
@@ -51,6 +55,10 @@ const navByRole = {
     icon: Briefcase,
     path: "/dashboard/student/posts"
   }, {
+    label: "Community",
+    icon: Newspaper,
+    path: "/community"
+  }, {
     label: "Chat",
     icon: MessageSquare,
     path: "/chat"
@@ -63,6 +71,10 @@ const navByRole = {
     label: "My Posts",
     icon: Globe,
     path: "/dashboard/industry/posts"
+  }, {
+    label: "Community",
+    icon: Newspaper,
+    path: "/community"
   }, {
     label: "Chat",
     icon: MessageSquare,

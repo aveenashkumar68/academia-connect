@@ -3,6 +3,8 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import { protect } from '../middleware/auth.js';
+import cloudinary from '../config/cloudinary.js';
+import upload from '../middleware/upload.js';
 
 const router = express.Router();
 
@@ -76,14 +78,21 @@ router.post('/change-password', protect, async (req, res) => {
 // @access  Private
 router.put('/profile', protect, async (req, res) => {
     try {
-        const { name } = req.body;
+        const { name, phone, department, address } = req.body;
         const user = await User.findById(req.user.id);
         if (!user) return res.status(404).json({ message: 'User not found' });
 
-        user.name = name || user.name;
+        if (name !== undefined) user.name = name;
+        if (phone !== undefined) user.phone = phone;
+        if (department !== undefined) user.department = department;
+        if (address !== undefined) user.address = address;
         await user.save();
 
-        res.json({ message: 'Profile updated successfully', name: user.name });
+        res.json({
+            message: 'Profile updated successfully',
+            name: user.name, phone: user.phone,
+            department: user.department, address: user.address,
+        });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Server error' });
@@ -111,6 +120,48 @@ router.put('/password', protect, async (req, res) => {
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   POST /api/auth/avatar
+// @desc    Upload profile picture to Cloudinary
+// @access  Private
+router.post('/avatar', protect, upload.single('avatar'), async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ message: 'No image file provided' });
+        }
+
+        const user = await User.findById(req.user.id);
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        // Upload buffer to Cloudinary via stream
+        const result = await new Promise((resolve, reject) => {
+            const stream = cloudinary.uploader.upload_stream(
+                {
+                    folder: 'mayaa-avatars',
+                    transformation: [
+                        { width: 300, height: 300, crop: 'fill', gravity: 'face' },
+                        { quality: 'auto', fetch_format: 'auto' },
+                    ],
+                    public_id: `user_${user._id}`,
+                    overwrite: true,
+                },
+                (error, result) => {
+                    if (error) reject(error);
+                    else resolve(result);
+                }
+            );
+            stream.end(req.file.buffer);
+        });
+
+        user.profilePicture = result.secure_url;
+        await user.save();
+
+        res.json({ message: 'Profile picture updated', profilePicture: result.secure_url });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Failed to upload image' });
     }
 });
 

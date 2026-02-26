@@ -1,136 +1,82 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom';
-import { FiMap, FiLogIn } from 'react-icons/fi';
-import { MdMail, MdLock } from "react-icons/md";
-import { useToast } from "@/components/ui/use-toast";
-import '../../styles/Login.css'
-
-const Login = () => {
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import api from "@/lib/api";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { toast } from "sonner";
+import { GraduationCap } from "lucide-react";
+export default function Login() {
   const navigate = useNavigate();
-  const { toast } = useToast();
-  const [formData, setFormData] = useState({
-    email: '',
-    password: ''
-  })
-
-  const handleChange = (e) => {
-    const { id, value } = e.target
-    setFormData(prev => ({
-      ...prev,
-      [id]: value
-    }))
-  }
-
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    
-    console.log('Login attempt with:', formData)
-    
-    let role = null;
-    let path = null;
-
-    if (formData.email.includes('admin')) {
-      role = 'super-admin';
-      path = '/dashboard/admin';
-    } else if (formData.email.includes('faculty')) {
-      role = 'admin';
-      path = '/dashboard/faculty';
-    } else if (formData.email.includes('student')) {
-      role = 'student';
-      path = '/dashboard/student';
-    } else if (formData.email.includes('industry')) {
-      role = 'industry_partner';
-      path = '/dashboard/industry';
-    } else {
-      toast({
-        title: "Login Failed",
-        description: "Invalid credentials. Use an email with admin, faculty, student, or industry to test.",
-        variant: "destructive"
+  const [loading, setLoading] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const handleLogin = async e => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const {
+        data
+      } = await api.post("/auth/login", {
+        email,
+        password
       });
-      return;
+
+      // Save user to localStorage
+      localStorage.setItem("user", JSON.stringify(data));
+      toast.success("Login successful!");
+
+      // Role-based redirect
+      const role = data.role;
+      const roleRoutes = {
+        "super-admin": "/dashboard/admin",
+        // Or wherever super admin goes
+        "admin": "/dashboard/faculty",
+        // Admin = Faculty
+        "student": "/dashboard/student" // Student
+      };
+      navigate(roleRoutes[role] || "/dashboard/student");
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Login failed");
+    } finally {
+      setLoading(false);
     }
-
-    const userData = { email: formData.email, role, token: 'mock-jwt-token' };
-    localStorage.setItem('user', JSON.stringify(userData));
-    
-    toast({
-      title: "Login Successful",
-      description: `Welcome back! Redirecting to ${role} dashboard...`,
-    });
-
-    window.location.href = path;
-  }
-
-  return (
-    <>
-      {/* Navbar */}
-      <nav className="navbar">
-        <div className="container-fluid px-3 px-lg-4">
-          <a className="navbar-logo" href="#">
-            <div className="navbar-logo-icon">
-              <span className="navbar-logo-icon">
-                          <FiMap />
-                        </span>
-            </div>
-            <div className="navbar-logo-text">
-              <span className="navbar-logo-main">
-                Project<span className="navbar-logo-accent">Mayaa</span>
-              </span>
-              <span className="navbar-logo-tagline">
-                Engineering • Business • Innovation
-              </span>
-            </div>
-          </a>
-        </div>
-      </nav>
-
-      {/* Login Section */}
-      <div className="login-container">
-        <div className="login-card">
-          <div className="project-heading">
-            <h1 className="project-title">Access Your Dashboard</h1>
-            <p className="project-subtitle">Project Mayaa · Secure Engineering Portal</p>
+  };
+  return <div className="flex min-h-screen items-center justify-center bg-background p-4">
+      <div className="w-full max-w-md animate-fade-in">
+        <div className="mb-8 text-center">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl gradient-primary">
+            <GraduationCap className="h-7 w-7 text-primary-foreground" />
           </div>
-          
-          <form onSubmit={handleSubmit}>
-            <label className="form-label" htmlFor="email">Email</label>
-            <div className="input-group-custom">
-           <MdMail className="input-icon" />
-              <input 
-                type="email" 
-                className="input-field" 
-                id="email" 
-                placeholder="Enter your email" 
-                value={formData.email}
-                onChange={handleChange}
-                required 
-              />
-            </div>
-
-            <label className="form-label" htmlFor="password">Password</label>
-            <div className="input-group-custom">
-              <MdLock className="input-icon" />
-              <input 
-                type="password" 
-                className="input-field" 
-                id="password" 
-                placeholder="• • • • • • • •" 
-                value={formData.password}
-                onChange={handleChange}
-                required 
-              />
-            </div>
-
-            <button type="submit" className="btn-login">Log in</button>
-
-            <div className="helper-row">
-              <a href="#" className="helper-link">Forgot password?</a>
-            </div>
-          </form>
+          <h1 className="font-display text-3xl font-bold tracking-tight text-foreground">
+            Project MAYAA
+          </h1>
+          <p className="mt-2 text-muted-foreground">
+            Academic Intelligence Platform
+          </p>
         </div>
-      </div>
-    </>
-  )
-}
 
-export default Login
+        <Card className="border-border/50 shadow-xl">
+          <CardHeader>
+            <CardTitle className="text-center text-xl">Sign In</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="login-email">Email</Label>
+                <Input id="login-email" type="email" placeholder="you@institution.edu" value={email} onChange={e => setEmail(e.target.value)} required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="login-password">Password</Label>
+                <Input id="login-password" type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} required />
+              </div>
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? "Signing in..." : "Sign In"}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    </div>;
+}
