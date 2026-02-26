@@ -98,7 +98,7 @@ export function AppSidebar() {
           <GraduationCap className="h-5 w-5 text-primary-foreground" />
         </div>
         <div>
-          <p className="font-display text-sm font-semibold text-sidebar-foreground">MAYAA</p>
+          <p className="font-display text-sm font-semibold text-sidebar-foreground">PROJECT MAYAA</p>
           {role !== 'super-admin' && (
             <p className="text-xs text-sidebar-foreground/60 capitalize">
               {role?.replace("_", " ") ?? "Loading..."}

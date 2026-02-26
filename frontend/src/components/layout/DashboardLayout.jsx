@@ -24,7 +24,7 @@ export function DashboardLayout({
           <Separator orientation="vertical" className="h-6 hidden sm:block" />
           <div className="hidden sm:flex flex-col">
             <h1 className="font-display text-lg font-bold text-foreground leading-none">Welcome {user?.name || "User"}!</h1>
-            <p className="text-xs text-muted-foreground mt-1">Mayaa Portal</p>
+            <p className="text-xs text-muted-foreground mt-1"></p>
           </div>
         </div>
 
