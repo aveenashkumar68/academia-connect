@@ -36,7 +36,7 @@ const navByRole = {
   }, {
     label: "Students",
     icon: GraduationCap,
-    path: "/dashboard/faculty/students"
+    path: "/dashboard/admin/users"
   }, {
     label: "Community",
     icon: Newspaper,
@@ -53,7 +53,7 @@ const navByRole = {
   }, {
     label: "Industry Posts",
     icon: Briefcase,
-    path: "/dashboard/student/posts"
+    path: "/community"
   }, {
     label: "Community",
     icon: Newspaper,
@@ -70,7 +70,7 @@ const navByRole = {
   }, {
     label: "My Posts",
     icon: Globe,
-    path: "/dashboard/industry/posts"
+    path: "/community"
   }, {
     label: "Community",
     icon: Newspaper,

@@ -3,7 +3,7 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-// Create a transporter using ethereal for testing or real SMTP
+// Create a transporter with timeouts to prevent hanging on Render
 const transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST || 'smtp.ethereal.email',
     port: parseInt(process.env.SMTP_PORT || '587'),
@@ -12,15 +12,29 @@ const transporter = nodemailer.createTransport({
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
     },
+    // Timeouts to prevent hanging on cloud deployments
+    connectionTimeout: 10000,  // 10 seconds to establish connection
+    greetingTimeout: 10000,    // 10 seconds for greeting
+    socketTimeout: 15000,      // 15 seconds for socket inactivity
+    // Connection pool for better performance
+    pool: true,
+    maxConnections: 3,
+    maxMessages: 50,
 });
 
 // Verify SMTP connection on startup
 transporter.verify()
     .then(() => console.log('✅ SMTP connection verified successfully'))
-    .catch((err) => console.error('❌ SMTP connection failed:', err.message));
+    .catch((err) => console.error('❌ SMTP connection failed:', err.message,
+        '\n   Check that SMTP_HOST, SMTP_PORT, SMTP_USER, and SMTP_PASS env vars are set correctly.'));
 
+/**
+ * Send credentials email (awaitable — returns true/false).
+ */
 export const sendCredentialsEmail = async (to, role, email, password) => {
     try {
+        console.log(`📧 Attempting to send credentials email to ${to}...`);
+
         const info = await transporter.sendMail({
             from: `"Project Mayaa" <${process.env.FROM_EMAIL || 'no-reply@example.com'}>`,
             to,
@@ -36,14 +50,27 @@ export const sendCredentialsEmail = async (to, role, email, password) => {
       `,
         });
 
-        console.log('Message sent: %s', info.messageId);
-        // If using ethereal email, you can view it by going to ethereal.email
-        if (info.messageId && process.env.SMTP_HOST.includes('ethereal')) {
-            console.log('Preview URL: %s', nodemailer.getTestMessageUrl(info));
-        }
+        console.log('✅ Email sent successfully:', info.messageId);
         return true;
     } catch (error) {
-        console.error('Error sending email:', error);
+        console.error('❌ Error sending email to', to, ':', error.message);
         return false;
     }
+};
+
+/**
+ * Fire-and-forget email sending — does NOT block the caller.
+ * Logs success/failure in the background.
+ */
+export const sendCredentialsEmailAsync = (to, role, email, password) => {
+    // Intentionally not awaited — runs in background
+    sendCredentialsEmail(to, role, email, password)
+        .then((sent) => {
+            if (!sent) {
+                console.error(`⚠️ Background email to ${to} failed. User was created but credentials were not emailed.`);
+            }
+        })
+        .catch((err) => {
+            console.error(`⚠️ Background email to ${to} threw:`, err.message);
+        });
 };

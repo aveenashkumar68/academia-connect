@@ -24,6 +24,7 @@ export default function Chat() {
   const textareaRef = useRef(null);
   const socketRef = useRef(null);
   const typingTimeout = useRef(null);
+  const selectedUserRef = useRef(null);
 
   // Fetch contacts
   const fetchContacts = useCallback(async () => {
@@ -58,7 +59,7 @@ export default function Chat() {
     });
 
     socket.on("user_typing", ({ senderId }) => {
-      setTyping((prev) => (selectedUser?._id === senderId ? true : prev));
+      if (selectedUserRef.current?._id === senderId) setTyping(true);
     });
     socket.on("user_stop_typing", () => setTyping(false));
 
@@ -70,6 +71,11 @@ export default function Chat() {
       disconnectSocket();
     };
   }, [user, fetchContacts]);
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    selectedUserRef.current = selectedUser;
+  }, [selectedUser]);
 
   // Load messages when selecting a user
   useEffect(() => {
@@ -196,8 +202,8 @@ export default function Chat() {
                   key={c._id}
                   onClick={() => selectContact(c)}
                   className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50 border-l-[3px] ${selectedUser?._id === c._id
-                      ? "bg-muted/50 border-primary"
-                      : "border-transparent"
+                    ? "bg-muted/50 border-primary"
+                    : "border-transparent"
                     }`}
                 >
                   {/* Avatar */}
@@ -321,8 +327,8 @@ export default function Chat() {
                             </div>
                             <div>
                               <div className={`px-4 py-2.5 rounded-2xl text-sm ${isMine
-                                  ? "bg-primary text-primary-foreground rounded-br-md"
-                                  : "bg-card border border-border/50 text-foreground rounded-bl-md shadow-sm"
+                                ? "bg-primary text-primary-foreground rounded-br-md"
+                                : "bg-card border border-border/50 text-foreground rounded-bl-md shadow-sm"
                                 }`}>
                                 {msg.content}
                               </div>

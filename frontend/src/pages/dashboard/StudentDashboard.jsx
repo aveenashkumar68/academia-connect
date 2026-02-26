@@ -1,49 +1,60 @@
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import api from "@/lib/api";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { BarChart3, Calendar, Briefcase, Trophy } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+
 export default function StudentDashboard() {
-  const {
-    user
-  } = useAuth();
+  const { user } = useAuth();
   const [profile, setProfile] = useState(null);
+
   useEffect(() => {
-    if (!user) return;
-    supabase.from("student_profiles").select("*").eq("user_id", user.id).maybeSingle().then(({
-      data
-    }) => setProfile(data));
+    if (!user?._id) return;
+    (async () => {
+      try {
+        const { data } = await api.get(`/users/${user._id}`);
+        setProfile(data);
+      } catch {
+        console.error("Failed to load student profile");
+      }
+    })();
   }, [user]);
-  return <DashboardLayout title="My Dashboard" description="Track your academic progress">
+
+  return (
+    <DashboardLayout title="My Dashboard" description="Track your academic progress">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard title="Performance" value={profile?.performance_score ?? 0} icon={Trophy} description="Overall score" />
-        <StatCard title="Attendance" value={`${profile?.attendance_percentage ?? 0}%`} icon={Calendar} />
-        <StatCard title="Projects" value={profile?.project_count ?? 0} icon={Briefcase} />
-        <StatCard title="Industry Score" value={profile?.industry_engagement_score ?? 0} icon={BarChart3} />
+        <StatCard title="Department" value={profile?.department || "—"} icon={Trophy} />
+        <StatCard title="Year" value={profile?.year || "—"} icon={Calendar} />
+        <StatCard title="Domain" value={profile?.domain || "—"} icon={Briefcase} />
+        <StatCard title="Reg. No." value={profile?.regNo || "—"} icon={BarChart3} />
       </div>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
         <Card className="border-border/50">
           <CardHeader>
-            <CardTitle className="font-display text-base">Progress Overview</CardTitle>
+            <CardTitle className="font-display text-base">My Profile</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
               <div className="mb-1 flex justify-between text-sm">
-                <span className="text-muted-foreground">Performance</span>
-                <span className="font-medium">{profile?.performance_score ?? 0}/100</span>
+                <span className="text-muted-foreground">Name</span>
+                <span className="font-medium">{profile?.name || "—"}</span>
               </div>
-              <Progress value={profile?.performance_score ?? 0} className="h-2" />
             </div>
             <div>
               <div className="mb-1 flex justify-between text-sm">
-                <span className="text-muted-foreground">Attendance</span>
-                <span className="font-medium">{profile?.attendance_percentage ?? 0}%</span>
+                <span className="text-muted-foreground">Email</span>
+                <span className="font-medium">{profile?.email || "—"}</span>
               </div>
-              <Progress value={profile?.attendance_percentage ?? 0} className="h-2" />
+            </div>
+            <div>
+              <div className="mb-1 flex justify-between text-sm">
+                <span className="text-muted-foreground">Phone</span>
+                <span className="font-medium">{profile?.phone || "—"}</span>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -58,5 +69,6 @@ export default function StudentDashboard() {
           </CardContent>
         </Card>
       </div>
-    </DashboardLayout>;
+    </DashboardLayout>
+  );
 }

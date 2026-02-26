@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 import User from '../models/User.js';
 import Notification from '../models/Notification.js';
 import { protect, authorize } from '../middleware/auth.js';
-import { sendCredentialsEmail } from '../utils/mailer.js';
+import { sendCredentialsEmailAsync } from '../utils/mailer.js';
 import crypto from 'crypto';
 
 const router = express.Router();
@@ -39,8 +39,8 @@ router.post('/admin', protect, authorize('super-admin'), async (req, res) => {
         });
 
         if (user) {
-            // Send email with credentials
-            const emailSent = await sendCredentialsEmail(email, 'Admin', email, unhashedPassword);
+            // Send email in background — don't block the response
+            sendCredentialsEmailAsync(email, 'Admin', email, unhashedPassword);
 
             // Auto-create notification
             await Notification.create({
@@ -54,10 +54,7 @@ router.post('/admin', protect, authorize('super-admin'), async (req, res) => {
                 _id: user._id,
                 email: user.email,
                 role: user.role,
-                message: emailSent
-                    ? 'Admin account created and credentials sent to email'
-                    : 'Admin account created but failed to send credentials email. Please check SMTP configuration.',
-                emailSent,
+                message: 'Admin account created. Credentials email is being sent.',
             });
         } else {
             res.status(400).json({ message: 'Invalid user data' });
@@ -97,8 +94,8 @@ router.post('/student', protect, authorize('admin'), async (req, res) => {
         });
 
         if (user) {
-            // Send email with credentials
-            const emailSent = await sendCredentialsEmail(email, 'Student', email, unhashedPassword);
+            // Send email in background — don't block the response
+            sendCredentialsEmailAsync(email, 'Student', email, unhashedPassword);
 
             // Auto-create notification
             const creator = await User.findById(req.user.id).select('name');
@@ -113,10 +110,7 @@ router.post('/student', protect, authorize('admin'), async (req, res) => {
                 _id: user._id,
                 email: user.email,
                 role: user.role,
-                message: emailSent
-                    ? 'Student account created and credentials sent to email'
-                    : 'Student account created but failed to send credentials email. Please check SMTP configuration.',
-                emailSent,
+                message: 'Student account created. Credentials email is being sent.',
             });
         } else {
             res.status(400).json({ message: 'Invalid user data' });

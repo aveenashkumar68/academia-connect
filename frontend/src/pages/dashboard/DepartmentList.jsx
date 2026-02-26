@@ -285,7 +285,7 @@ export default function DepartmentList() {
           <div className="space-y-2">
             <Label>Business Domains</Label>
             <div className="flex gap-2">
-              <Input value={newDomain} onChange={(e) => setNewDomain(e.target.value)} placeholder="Add domain..." onKeyPress={(e) => e.key === 'Enter' && addDomainToDept()} />
+              <Input value={newDomain} onChange={(e) => setNewDomain(e.target.value)} placeholder="Add domain..." onKeyDown={(e) => e.key === 'Enter' && addDomainToDept()} />
               <Button onClick={addDomainToDept} size="icon" className="bg-primary hover:bg-primary/90 text-primary-foreground shrink-0">
                 <Plus className="h-4 w-4" />
               </Button>

@@ -18,10 +18,7 @@ const POST_TYPES = [
     { value: "general", label: "General", icon: "📢", color: "bg-gray-50 text-gray-600 border-gray-200 dark:bg-gray-800/40 dark:text-gray-400 dark:border-gray-700" },
 ];
 
-const DEPARTMENTS = [
-    "Computer Science", "Engineering", "Data Science",
-    "Business Administration", "Arts & Humanities", "Medicine", "Law"
-];
+
 
 export default function CommunityPosts() {
     const { user } = useAuth();
@@ -37,6 +34,7 @@ export default function CommunityPosts() {
     const [posting, setPosting] = useState(false);
     const [form, setForm] = useState(getEmptyForm());
     const [tagInput, setTagInput] = useState("");
+    const [departments, setDepartments] = useState([]);
 
     function getEmptyForm() {
         return {
@@ -65,6 +63,18 @@ export default function CommunityPosts() {
     };
 
     useEffect(() => { fetchPosts(); }, [typeFilter, deptFilter]);
+
+    // Fetch departments from API
+    useEffect(() => {
+        (async () => {
+            try {
+                const { data } = await api.get("/departments");
+                setDepartments(data);
+            } catch {
+                console.error("Failed to fetch departments");
+            }
+        })();
+    }, []);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -156,8 +166,8 @@ export default function CommunityPosts() {
         <DashboardLayout title="Community Hub">
             <div className="max-w-4xl mx-auto space-y-5 sm:space-y-6">
 
-              
-               
+
+
 
                 {/* Create Post Button */}
                 {!showForm && (
@@ -220,7 +230,7 @@ export default function CommunityPosts() {
                                     <select value={form.department} onChange={e => updateForm("department", e.target.value)}
                                         className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
                                         <option value="">All Departments</option>
-                                        {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
+                                        {departments.map(d => <option key={d._id} value={d.name}>{d.name}</option>)}
                                     </select>
                                 </div>
                                 <div className="space-y-1">
@@ -343,7 +353,7 @@ export default function CommunityPosts() {
                     <select value={deptFilter} onChange={e => setDeptFilter(e.target.value)}
                         className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 self-start sm:self-auto">
                         <option value="all">All Departments</option>
-                        {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
+                        {departments.map(d => <option key={d._id} value={d.name}>{d.name}</option>)}
                     </select>
                 </div>
 

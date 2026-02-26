@@ -14,6 +14,7 @@ export default function FacultyDashboard() {
   const [loading, setLoading] = useState(false);
   const [departments, setDepartments] = useState([]);
   const [selectedDept, setSelectedDept] = useState(null);
+  const [studentCount, setStudentCount] = useState(0);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -35,6 +36,16 @@ export default function FacultyDashboard() {
 
   useEffect(() => {
     fetchDepartments();
+    // Fetch student count for this faculty
+    (async () => {
+      try {
+        const { data } = await api.get("/chat/users");
+        const students = data.filter(u => u.role === "student");
+        setStudentCount(students.length);
+      } catch {
+        // Fallback — count not critical
+      }
+    })();
   }, []);
 
   const handleDeptChange = (value) => {
@@ -59,6 +70,7 @@ export default function FacultyDashboard() {
         domain: ""
       });
       setSelectedDept(null);
+      setStudentCount(prev => prev + 1);
     } catch (error) {
       toast.error(error.response?.data?.message || "Failed to create student");
     } finally {
@@ -67,7 +79,7 @@ export default function FacultyDashboard() {
   };
   return <DashboardLayout title="Admin (Faculty) Dashboard" description="Manage students and cohorts">
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      <StatCard title="Total Students" value={0} icon={GraduationCap} />
+      <StatCard title="Total Students" value={studentCount} icon={GraduationCap} />
       <StatCard title="Avg Performance" value="—" icon={BarChart3} description="Across all students" />
       <StatCard title="Active Cohorts" value="—" icon={Users} />
     </div>

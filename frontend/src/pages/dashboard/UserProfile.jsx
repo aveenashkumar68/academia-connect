@@ -28,7 +28,7 @@ export default function UserProfile() {
       }
     };
     fetchUser();
-  }, [id]);
+  }, [id, navigate]);
 
   if (loading) return <DashboardLayout><div className="text-center py-20">Loading...</div></DashboardLayout>;
   if (!user) return <DashboardLayout><div className="text-center py-20">User not found</div></DashboardLayout>;
