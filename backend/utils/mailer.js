@@ -17,12 +17,12 @@ const transporter = nodemailer.createTransport({
 export const sendCredentialsEmail = async (to, role, email, password) => {
     try {
         const info = await transporter.sendMail({
-            from: `"Academia Connect" <${process.env.FROM_EMAIL || 'no-reply@example.com'}>`,
+            from: `"Project Mayaa" <${process.env.FROM_EMAIL || 'no-reply@example.com'}>`,
             to,
             subject: `Your ${role} Account Credentials`,
-            text: `Hello,\n\nCongratulations you are a member of project mayaa and your user id and password is this:\nEmail: ${email}\nPassword: ${password}\n\nPlease login to access your account.\n\nThanks,\nAcademia Connect Team`,
+            text: `Hello,\n\nCongratulations you are a member of project mayaa and your user id and password is this:\nEmail: ${email}\nPassword: ${password}\n\nPlease login to access your account.\n\nThanks,\nProject Mayaa Team`,
             html: `
-        <h3>Welcome to Academia Connect!</h3>
+        <h3>Welcome to Project Mayaa!</h3>
         <p>Congratulations you are a member of project mayaa and your user id and password is this:</p>
         <ul>
           <li><strong>Email:</strong> ${email}</li>
