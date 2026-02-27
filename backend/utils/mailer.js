@@ -1,34 +1,61 @@
 import nodemailer from 'nodemailer';
+import dns from 'dns';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
-// Create a transporter with timeouts to prevent hanging on Render
-const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'smtp.ethereal.email',
-    port: parseInt(process.env.SMTP_PORT || '587'),
-    secure: process.env.SMTP_PORT === '465', // true for 465, false for other ports
+// Force Node.js DNS resolver to prefer IPv4 globally
+// This prevents ENETUNREACH errors on cloud providers that lack IPv6
+dns.setDefaultResultOrder('ipv4first');
+
+// Build transport options — use Gmail service shortcut when applicable
+const isGmail = (process.env.SMTP_HOST || '').toLowerCase().includes('gmail');
+
+const transportOptions = {
+    // Force IPv4 at the socket level too
+    family: 4,
     auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
     },
-    // Force IPv4 — many cloud providers (Render, Railway, etc.) don't support IPv6
-    family: 4,
+    // TLS options for cloud environments
+    tls: {
+        // Render's network may use intermediate proxies
+        rejectUnauthorized: false,
+    },
     // Timeouts to prevent hanging on cloud deployments
-    connectionTimeout: 10000,  // 10 seconds to establish connection
-    greetingTimeout: 10000,    // 10 seconds for greeting
-    socketTimeout: 15000,      // 15 seconds for socket inactivity
-    // Connection pool for better performance
-    pool: true,
-    maxConnections: 3,
-    maxMessages: 50,
+    connectionTimeout: 15000,
+    greetingTimeout: 15000,
+    socketTimeout: 20000,
+    // Do NOT use pool — it causes issues with Gmail SSL on Render
+};
+
+if (isGmail) {
+    // Use nodemailer's built-in Gmail service config (handles host/port/secure automatically)
+    transportOptions.service = 'gmail';
+} else {
+    transportOptions.host = process.env.SMTP_HOST || 'smtp.ethereal.email';
+    transportOptions.port = parseInt(process.env.SMTP_PORT || '587');
+    transportOptions.secure = process.env.SMTP_PORT === '465';
+}
+
+const transporter = nodemailer.createTransport(transportOptions);
+
+// Log config on startup (mask password)
+console.log('📧 SMTP Config:', {
+    service: isGmail ? 'gmail' : undefined,
+    host: isGmail ? '(gmail service)' : transportOptions.host,
+    user: process.env.SMTP_USER || '⚠️ MISSING',
+    pass: process.env.SMTP_PASS ? '****' : '⚠️ MISSING',
+    from: process.env.FROM_EMAIL || '⚠️ MISSING',
 });
 
-// Verify SMTP connection on startup
+// Verify SMTP connection on startup (non-fatal)
 transporter.verify()
     .then(() => console.log('✅ SMTP connection verified successfully'))
     .catch((err) => console.error('❌ SMTP connection failed:', err.message,
-        '\n   Check that SMTP_HOST, SMTP_PORT, SMTP_USER, and SMTP_PASS env vars are set correctly.'));
+        '\n   This is non-fatal — emails will be retried on each send attempt.',
+        '\n   Check SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS env vars on Render.'));
 
 /**
  * Send credentials email (awaitable — returns true/false).
@@ -38,7 +65,7 @@ export const sendCredentialsEmail = async (to, role, email, password) => {
         console.log(`📧 Attempting to send credentials email to ${to}...`);
 
         const info = await transporter.sendMail({
-            from: `"Project Mayaa" <${process.env.FROM_EMAIL || 'no-reply@example.com'}>`,
+            from: `"Project Mayaa" <${process.env.FROM_EMAIL || process.env.SMTP_USER}>`,
             to,
             subject: `Your ${role} Account Credentials`,
             text: `Hello,\n\nCongratulations you are a member of project mayaa and your user id and password is this:\nEmail: ${email}\nPassword: ${password}\n\nPlease login to access your account.\n\nThanks,\nProject Mayaa Team`,
