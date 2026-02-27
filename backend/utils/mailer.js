@@ -12,6 +12,8 @@ const transporter = nodemailer.createTransport({
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
     },
+    // Force IPv4 — many cloud providers (Render, Railway, etc.) don't support IPv6
+    family: 4,
     // Timeouts to prevent hanging on cloud deployments
     connectionTimeout: 10000,  // 10 seconds to establish connection
     greetingTimeout: 10000,    // 10 seconds for greeting
