@@ -15,10 +15,10 @@ if (!SENDGRID_API_KEY) {
     console.log('SendGrid configured successfully');
 }
 
-console.log('Email Config:', {
-    from: `${FROM_NAME} <${FROM_EMAIL}>`,
-    apiKey: SENDGRID_API_KEY ? '****' + SENDGRID_API_KEY.slice(-4) : '⚠️ MISSING',
-});
+// console.log('Email Config:', {
+//     from: `${FROM_NAME} <${FROM_EMAIL}>`,
+//     apiKey: SENDGRID_API_KEY ? '****' + SENDGRID_API_KEY.slice(-4) : '⚠️ MISSING',
+// });
 
 /**
  * Send credentials email (awaitable — returns true/false).
