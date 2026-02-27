@@ -1,88 +1,84 @@
-import nodemailer from 'nodemailer';
-import dns from 'dns';
+import sgMail from '@sendgrid/mail';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
-// Force Node.js DNS resolver to prefer IPv4 globally
-// This prevents ENETUNREACH errors on cloud providers that lack IPv6
-dns.setDefaultResultOrder('ipv4first');
+// ── SendGrid configuration ──────────────────────────────────────────────
+const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY;
+const FROM_EMAIL = process.env.FROM_EMAIL || 'no-reply@projectmayaa.com';
+const FROM_NAME = process.env.FROM_NAME || 'Project Mayaa';
 
-// Build transport options — use Gmail service shortcut when applicable
-const isGmail = (process.env.SMTP_HOST || '').toLowerCase().includes('gmail');
-
-const transportOptions = {
-    // Force IPv4 at the socket level too
-    family: 4,
-    auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-    },
-    // TLS options for cloud environments
-    tls: {
-        // Render's network may use intermediate proxies
-        rejectUnauthorized: false,
-    },
-    // Timeouts to prevent hanging on cloud deployments
-    connectionTimeout: 15000,
-    greetingTimeout: 15000,
-    socketTimeout: 20000,
-    // Do NOT use pool — it causes issues with Gmail SSL on Render
-};
-
-if (isGmail) {
-    // Use nodemailer's built-in Gmail service config (handles host/port/secure automatically)
-    transportOptions.service = 'gmail';
+if (!SENDGRID_API_KEY) {
+    console.error('SENDGRID_API_KEY is not set. Emails will NOT be sent.');
 } else {
-    transportOptions.host = process.env.SMTP_HOST || 'smtp.ethereal.email';
-    transportOptions.port = parseInt(process.env.SMTP_PORT || '587');
-    transportOptions.secure = process.env.SMTP_PORT === '465';
+    sgMail.setApiKey(SENDGRID_API_KEY);
+    console.log('SendGrid configured successfully');
 }
 
-const transporter = nodemailer.createTransport(transportOptions);
-
-// Log config on startup (mask password)
-console.log('📧 SMTP Config:', {
-    service: isGmail ? 'gmail' : undefined,
-    host: isGmail ? '(gmail service)' : transportOptions.host,
-    user: process.env.SMTP_USER || '⚠️ MISSING',
-    pass: process.env.SMTP_PASS ? '****' : '⚠️ MISSING',
-    from: process.env.FROM_EMAIL || '⚠️ MISSING',
+console.log('Email Config:', {
+    from: `${FROM_NAME} <${FROM_EMAIL}>`,
+    apiKey: SENDGRID_API_KEY ? '****' + SENDGRID_API_KEY.slice(-4) : '⚠️ MISSING',
 });
-
-// Verify SMTP connection on startup (non-fatal)
-transporter.verify()
-    .then(() => console.log('✅ SMTP connection verified successfully'))
-    .catch((err) => console.error('❌ SMTP connection failed:', err.message,
-        '\n   This is non-fatal — emails will be retried on each send attempt.',
-        '\n   Check SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS env vars on Render.'));
 
 /**
  * Send credentials email (awaitable — returns true/false).
  */
 export const sendCredentialsEmail = async (to, role, email, password) => {
+    if (!SENDGRID_API_KEY) {
+        console.error('Cannot send email — SENDGRID_API_KEY is not configured.');
+        return false;
+    }
+
     try {
-        console.log(`📧 Attempting to send credentials email to ${to}...`);
+        console.log(`Sending credentials email to ${to} via SendGrid...`);
 
-        const info = await transporter.sendMail({
-            from: `"Project Mayaa" <${process.env.FROM_EMAIL || process.env.SMTP_USER}>`,
+        const msg = {
             to,
+            from: { email: FROM_EMAIL, name: FROM_NAME },
             subject: `Your ${role} Account Credentials`,
-            text: `Hello,\n\nCongratulations you are a member of project mayaa and your user id and password is this:\nEmail: ${email}\nPassword: ${password}\n\nPlease login to access your account.\n\nThanks,\nProject Mayaa Team`,
+            text: [
+                'Hello,',
+                '',
+                'Congratulations! You are now a member of Project Mayaa.',
+                '',
+                `Email:    ${email}`,
+                `Password: ${password}`,
+                '',
+                'Please login to access your account.',
+                '',
+                'Thanks,',
+                'Project Mayaa Team',
+            ].join('\n'),
             html: `
-        <h3>Welcome to Project Mayaa!</h3>
-        <p>Congratulations you are a member of project mayaa and your user id and password is this:</p>
-        <ul>
-          <li><strong>Email:</strong> ${email}</li>
-          <li><strong>Password:</strong> ${password}</li>
-        </ul>
-      `,
-        });
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                    <h2 style="color: #2563eb;">Welcome to Project Mayaa!</h2>
+                    <p>Congratulations! You are now a member of Project Mayaa. Here are your login credentials:</p>
+                    <table style="border-collapse: collapse; margin: 16px 0;">
+                        <tr>
+                            <td style="padding: 8px 16px; font-weight: bold; background: #f1f5f9;">Email</td>
+                            <td style="padding: 8px 16px; background: #f8fafc;">${email}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px 16px; font-weight: bold; background: #f1f5f9;">Password</td>
+                            <td style="padding: 8px 16px; background: #f8fafc;">${password}</td>
+                        </tr>
+                    </table>
+                    <p>Please login to access your account and change your password.</p>
+                    <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
+                    <p style="color: #64748b; font-size: 12px;">This is an automated message from Project Mayaa. Do not reply to this email.</p>
+                </div>
+            `,
+        };
 
-        console.log('✅ Email sent successfully:', info.messageId);
+        await sgMail.send(msg);
+        console.log('Email sent successfully to', to);
         return true;
     } catch (error) {
-        console.error('❌ Error sending email to', to, ':', error.message);
+        // SendGrid errors have a response body with details
+        const details = error.response?.body?.errors
+            ? error.response.body.errors.map((e) => e.message).join('; ')
+            : error.message;
+        console.error('SendGrid error sending to', to, ':', details);
         return false;
     }
 };
@@ -96,10 +92,10 @@ export const sendCredentialsEmailAsync = (to, role, email, password) => {
     sendCredentialsEmail(to, role, email, password)
         .then((sent) => {
             if (!sent) {
-                console.error(`⚠️ Background email to ${to} failed. User was created but credentials were not emailed.`);
+                console.error(`Background email to ${to} failed. User was created but credentials were not emailed.`);
             }
         })
         .catch((err) => {
-            console.error(`⚠️ Background email to ${to} threw:`, err.message);
+            console.error(`Background email to ${to} threw:`, err.message);
         });
 };
