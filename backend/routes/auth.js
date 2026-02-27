@@ -89,7 +89,7 @@ router.put('/profile', protect, async (req, res) => {
         await user.save();
 
         res.json({
-            message: 'Profile updated successfully',
+            message: 'Profile updated successfully, please login again to see changes',
             name: user.name, phone: user.phone,
             department: user.department, address: user.address,
         });
