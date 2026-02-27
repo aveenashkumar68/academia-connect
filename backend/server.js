@@ -17,10 +17,13 @@ dotenv.config();
 const app = express();
 const httpServer = createServer(app);
 
+// CORS origin — set this on Render env vars
+const CORS_ORIGIN = process.env.CORS_ORIGIN || 'https://academia-connect-three.vercel.app';
+
 // Socket.IO setup
 const io = new SocketIOServer(httpServer, {
     cors: {
-        origin: 'https://academia-connect-three.vercel.app',
+        origin: CORS_ORIGIN,
         methods: ['GET', 'POST'],
     },
 });
@@ -82,8 +85,16 @@ io.on('connection', (socket) => {
 });
 
 // Middleware
-app.use(cors());
+app.use(cors({
+    origin: CORS_ORIGIN,
+    credentials: true,
+}));
 app.use(express.json());
+
+// Health check — Render pings this to keep the service alive
+app.get('/api/health', (req, res) => {
+    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
 
 // Routes
 app.use('/api/auth', authRoutes);

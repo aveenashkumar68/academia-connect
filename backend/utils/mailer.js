@@ -35,6 +35,7 @@ export const sendCredentialsEmail = async (to, role, email, password) => {
         const msg = {
             to,
             from: { email: FROM_EMAIL, name: FROM_NAME },
+            replyTo: { email: FROM_EMAIL, name: FROM_NAME },
             subject: `Your ${role} Account Credentials`,
             text: [
                 'Hello,',
@@ -70,15 +71,22 @@ export const sendCredentialsEmail = async (to, role, email, password) => {
             `,
         };
 
-        await sgMail.send(msg);
-        console.log('Email sent successfully to', to);
+        const [response] = await sgMail.send(msg);
+        const statusCode = response.statusCode;
+        console.log(`Email sent to ${to} (status: ${statusCode})`);
+
+        if (statusCode !== 202) {
+            console.error(`Unexpected SendGrid status ${statusCode} for ${to}. Email may not be delivered.`);
+        }
+
         return true;
     } catch (error) {
         // SendGrid errors have a response body with details
+        const statusCode = error.code || error.response?.statusCode;
         const details = error.response?.body?.errors
             ? error.response.body.errors.map((e) => e.message).join('; ')
             : error.message;
-        console.error('SendGrid error sending to', to, ':', details);
+        console.error(`SendGrid error [${statusCode}] sending to ${to}:`, details);
         return false;
     }
 };
