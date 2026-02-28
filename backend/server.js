@@ -18,7 +18,7 @@ const app = express();
 const httpServer = createServer(app);
 
 // CORS origin — set this on Render env vars
-const CORS_ORIGIN = process.env.CORS_ORIGIN || 'https://academia-connect-three.vercel.app';
+const CORS_ORIGIN = process.env.CORS_ORIGIN || 'http://localhost:8080';
 
 // Socket.IO setup
 const io = new SocketIOServer(httpServer, {

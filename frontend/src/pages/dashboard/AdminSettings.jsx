@@ -58,10 +58,10 @@ export default function AdminSettings() {
     return (
         <DashboardLayout>
             <div className="space-y-6">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
-                        <h2 className="text-3xl font-bold tracking-tight text-foreground">Settings</h2>
-                        <p className="text-muted-foreground">Manage your account settings and credentials</p>
+                        <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">Settings</h2>
+                        <p className="text-sm text-muted-foreground">Manage your account settings and credentials</p>
                     </div>
                 </div>
 

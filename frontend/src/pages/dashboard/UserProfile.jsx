@@ -1,33 +1,48 @@
 import { useState, useEffect } from "react";
 import api from "@/lib/api";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 import { useParams, useNavigate } from "react-router-dom";
-import { User, Mail, Phone, Building2, GraduationCap, ArrowLeft, Calendar, UserRound } from "lucide-react";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
+import {
+  ArrowLeft, Mail, Phone, Calendar, Building2, GraduationCap,
+  Globe, Users, Eye, Search, UserRound, MessageSquare
+} from "lucide-react";
+import { Input } from "@/components/ui/input";
 
 export default function UserProfile() {
   const { id } = useParams();
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const [user, setUser] = useState(null);
+  const [students, setStudents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [studentSearch, setStudentSearch] = useState("");
 
   useEffect(() => {
-    const fetchUser = async () => {
+    const fetchData = async () => {
       try {
-        const response = await api.get(`/users/${id}`);
-        setUser(response.data);
+        const { data } = await api.get(`/users/${id}`);
+        setUser(data);
+
+        // If viewing a faculty member, also fetch their students
+        if (data.role === 'admin') {
+          try {
+            const studentsRes = await api.get(`/users/${id}/students`);
+            setStudents(studentsRes.data);
+          } catch {
+            // Not critical — may not have permission
+          }
+        }
       } catch (error) {
         toast.error("Failed to fetch user profile");
-        navigate("/dashboard/admin/users");
+        navigate(-1);
       } finally {
         setLoading(false);
       }
     };
-    fetchUser();
+    fetchData();
   }, [id, navigate]);
 
   if (loading) return <DashboardLayout><div className="text-center py-20">Loading...</div></DashboardLayout>;
@@ -38,92 +53,224 @@ export default function UserProfile() {
     ? user.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
     : user.email?.charAt(0).toUpperCase() || 'U';
 
-  return <DashboardLayout>
-    <div className="space-y-6">
-      <Button
-        variant="ghost"
-        className="flex items-center gap-2 hover:bg-transparent pl-0"
-        onClick={() => navigate(-1)}
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back
-      </Button>
+  const isFaculty = user.role === 'admin';
+  const isStudent = user.role === 'student';
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Profile Sidebar */}
-        <Card className="shadow-sm border border-border/50 bg-card lg:col-span-1 h-fit">
-          <CardContent className="p-8 flex flex-col items-center">
-            <Avatar className="h-32 w-32 border-4 border-background mb-4 shadow-sm">
-              <AvatarFallback className="bg-primary text-primary-foreground text-3xl font-bold">
+  const joinedDate = user.createdAt
+    ? new Date(user.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+    : 'N/A';
+
+  // Filter students by search
+  const filteredStudents = studentSearch.trim()
+    ? students.filter(s =>
+      (s.name || "").toLowerCase().includes(studentSearch.toLowerCase()) ||
+      (s.regNo || "").toLowerCase().includes(studentSearch.toLowerCase()) ||
+      (s.email || "").toLowerCase().includes(studentSearch.toLowerCase())
+    )
+    : students;
+
+  const getStudentInitials = (name) => name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || '?';
+
+  return <DashboardLayout>
+    <div className="space-y-5 max-w-5xl mx-auto">
+      {/* Navigation */}
+      <div className="flex items-center gap-3 bg-white rounded-xl p-3 shadow-sm border border-border/50">
+        <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground" onClick={() => navigate(-1)}>
+          <ArrowLeft className="h-4 w-4 mr-1.5" /> Back
+        </Button>
+        <span className="text-sm font-semibold text-[#1e3c72]">
+          {isFaculty ? "Faculty Profile" : isStudent ? "Student Profile" : "User Profile"}
+        </span>
+      </div>
+
+      {/* Profile Header */}
+      <Card className="shadow-sm border border-border/50 bg-card">
+        <CardContent className="p-5 sm:p-8">
+          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
+            {/* Avatar */}
+            <Avatar className="h-24 w-24 shadow-md ring-4 ring-white shrink-0">
+              {user.profilePicture && <AvatarImage src={user.profilePicture} alt={displayName} />}
+              <AvatarFallback className="bg-[#1e3c72] text-white text-2xl font-bold">
                 {initials}
               </AvatarFallback>
             </Avatar>
-            <h3 className="text-xl font-bold text-foreground mb-1">{displayName}</h3>
-            <p className="text-sm font-medium text-primary uppercase tracking-wider mb-4">
-              {user.role.replace('_', ' ')}
-            </p>
 
-            <div className="w-full space-y-4 pt-6 border-t border-slate-100 mt-6">
-              <div className="flex items-center gap-3 text-sm">
-                <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
-                <span className="truncate">{user.email}</span>
-              </div>
-              <div className="flex items-center gap-3 text-sm">
-                <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
-                <span>{user.phone || 'N/A'}</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            {/* Name + Meta */}
+            <div className="flex-1 text-center sm:text-left w-full">
+              <h1 className="text-2xl sm:text-3xl font-bold text-[#1e3c72] mb-1">{displayName}</h1>
+              <p className="text-muted-foreground mb-4">
+                {isFaculty && user.department ? `${user.department} Faculty` : ''}
+                {isStudent && user.department ? `${user.department} Student` : ''}
+                {!user.department ? user.role.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase()) : ''}
+              </p>
 
-        {/* Detailed Info */}
-        <Card className="shadow-sm border border-border/50 bg-card lg:col-span-2">
-          <CardHeader className="flex flex-row items-center gap-3 pb-2">
-            <div className="p-2 bg-primary/10 rounded-lg">
-              <UserRound className="h-5 w-5 text-primary" />
-            </div>
-            <CardTitle className="text-xl font-bold">Profile Details</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div className="space-y-1.5">
-                <Label className="text-muted-foreground text-xs uppercase tracking-wider font-bold">Department</Label>
-                <div className="flex items-center gap-2 font-medium">
-                  <Building2 className="h-4 w-4 text-slate-400" />
-                  {user.department || 'N/A'}
+              {/* Meta grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                <div className="flex items-center gap-3 bg-slate-50 rounded-xl p-3">
+                  <div className="h-10 w-10 rounded-lg bg-white flex items-center justify-center shrink-0 shadow-sm">
+                    <Mail className="h-4 w-4 text-blue-600" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs text-muted-foreground">Email</p>
+                    <p className="text-sm font-semibold truncate">{user.email}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 bg-slate-50 rounded-xl p-3">
+                  <div className="h-10 w-10 rounded-lg bg-white flex items-center justify-center shrink-0 shadow-sm">
+                    <Phone className="h-4 w-4 text-blue-600" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs text-muted-foreground">Phone</p>
+                    <p className="text-sm font-semibold">{user.phone || 'N/A'}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 bg-slate-50 rounded-xl p-3">
+                  <div className="h-10 w-10 rounded-lg bg-white flex items-center justify-center shrink-0 shadow-sm">
+                    <Calendar className="h-4 w-4 text-blue-600" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs text-muted-foreground">Joined</p>
+                    <p className="text-sm font-semibold">{joinedDate}</p>
+                  </div>
                 </div>
               </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-              {user.role === 'student' && (
-                <>
-                  <div className="space-y-1.5">
-                    <Label className="text-muted-foreground text-xs uppercase tracking-wider font-bold">Registration Number</Label>
-                    <div className="flex items-center gap-2 font-medium">
-                      <User className="h-4 w-4 text-slate-400" />
-                      {user.regNo || 'N/A'}
+      {/* Students Managing Count (Faculty only) */}
+      {isFaculty && (
+        <div className="max-w-sm mx-auto sm:mx-0">
+          <Card className="shadow-sm border border-border/50 bg-card">
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className="h-12 w-12 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
+                <Users className="h-6 w-6 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-[#1e3c72]">{students.length}</p>
+                <p className="text-sm text-muted-foreground">Students Managing</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Personal Information */}
+      <Card className="shadow-sm border border-border/50 bg-card">
+        <CardContent className="p-5 sm:p-6">
+          <div className="flex items-center gap-2.5 mb-5 pb-4 border-b border-border/50">
+            <UserRound className="h-5 w-5 text-blue-600" />
+            <h2 className="text-lg font-semibold text-[#1e3c72]">Personal Information</h2>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="bg-slate-50 p-3.5 rounded-xl border-l-[3px] border-blue-600">
+              <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Full Name</p>
+              <p className="font-semibold text-foreground">{displayName}</p>
+            </div>
+            <div className="bg-slate-50 p-3.5 rounded-xl border-l-[3px] border-blue-600">
+              <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Department</p>
+              <p className="font-semibold text-foreground">{user.department || 'N/A'}</p>
+            </div>
+            {(isFaculty || isStudent) && user.domain && (
+              <div className="bg-slate-50 p-3.5 rounded-xl border-l-[3px] border-blue-600">
+                <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Domain / Expertise</p>
+                <span className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-sm font-medium">
+                  <Globe className="h-3.5 w-3.5" />
+                  {user.domain}
+                </span>
+              </div>
+            )}
+            {isStudent && (
+              <>
+                <div className="bg-slate-50 p-3.5 rounded-xl border-l-[3px] border-blue-600">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Registration No.</p>
+                  <p className="font-semibold text-foreground">{user.regNo || 'N/A'}</p>
+                </div>
+                <div className="bg-slate-50 p-3.5 rounded-xl border-l-[3px] border-blue-600">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Current Year</p>
+                  <p className="font-semibold text-foreground">{user.year || 'N/A'}</p>
+                </div>
+              </>
+            )}
+            {user.address && (
+              <div className="bg-slate-50 p-3.5 rounded-xl border-l-[3px] border-blue-600 sm:col-span-2">
+                <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Address</p>
+                <p className="font-semibold text-foreground">{user.address}</p>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Students Section (Faculty only) */}
+      {isFaculty && (
+        <Card className="shadow-sm border border-border/50 bg-card">
+          <CardContent className="p-5 sm:p-6">
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5 pb-4 border-b border-border/50">
+              <div className="flex items-center gap-2.5">
+                <GraduationCap className="h-5 w-5 text-blue-600" />
+                <h2 className="text-lg font-semibold text-[#1e3c72]">Students ({students.length})</h2>
+              </div>
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search students..."
+                  value={studentSearch}
+                  onChange={(e) => setStudentSearch(e.target.value)}
+                  className="pl-10 h-9"
+                />
+              </div>
+            </div>
+
+            {/* Student rows */}
+            <div className="divide-y divide-border/50">
+              {filteredStudents.length === 0 ? (
+                <div className="text-center py-10 text-muted-foreground text-sm">
+                  {students.length === 0 ? "No students under this faculty" : "No students match your search"}
+                </div>
+              ) : (
+                filteredStudents.map((s) => (
+                  <div
+                    key={s._id}
+                    className="flex items-center gap-3 py-3 cursor-pointer hover:bg-slate-50/80 px-2 -mx-2 rounded-lg transition-colors"
+                    onClick={() => navigate(`/dashboard/admin/user/${s._id}`)}
+                  >
+                    <Avatar className="h-9 w-9 shrink-0">
+                      {s.profilePicture && <AvatarImage src={s.profilePicture} alt={s.name} />}
+                      <AvatarFallback className="bg-slate-100 text-blue-600 text-xs font-bold">
+                        {getStudentInitials(s.name)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-sm text-foreground truncate">{s.name || 'N/A'}</p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {s.department || ''} {s.year ? `• ${s.year}` : ''} {s.regNo ? `• ${s.regNo}` : ''}
+                      </p>
                     </div>
+                    <div className="h-2 w-2 rounded-full bg-green-500 shrink-0" title="Active" />
+                    <Button variant="outline" size="sm" className="h-8 text-xs shrink-0 hidden sm:flex"
+                      onClick={(e) => { e.stopPropagation(); navigate(`/dashboard/admin/user/${s._id}`); }}>
+                      <Eye className="h-3.5 w-3.5 mr-1" /> View
+                    </Button>
                   </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-muted-foreground text-xs uppercase tracking-wider font-bold">Current Year</Label>
-                    <div className="flex items-center gap-2 font-medium">
-                      <Calendar className="h-4 w-4 text-slate-400" />
-                      {user.year || 'N/A'}
-                    </div>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-muted-foreground text-xs uppercase tracking-wider font-bold">Expert Domain</Label>
-                    <div className="flex items-center gap-2 font-medium">
-                      <GraduationCap className="h-4 w-4 text-slate-400" />
-                      <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary ring-1 ring-inset ring-primary/10">
-                        {user.domain || 'N/A'}
-                      </span>
-                    </div>
-                  </div>
-                </>
+                ))
               )}
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Message Button */}
+      <div className="flex justify-center pb-4">
+        <Button
+          className="bg-green-600 hover:bg-green-700 text-white px-8"
+          onClick={() => navigate('/dashboard/chat')}
+        >
+          <MessageSquare className="h-4 w-4 mr-2" /> Send Message
+        </Button>
       </div>
     </div>
   </DashboardLayout>;

@@ -38,9 +38,9 @@ export default function AdminDashboard() {
   }, []);
 
   return <DashboardLayout>
-    <div className="space-y-2 mb-8">
-      <h2 className="text-3xl font-bold tracking-tight text-foreground">Super Admin Dashboard</h2>
-      <p className="text-muted-foreground">Welcome to the institutional management portal</p>
+    <div className="space-y-2 mb-6 sm:mb-8">
+      <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">Super Admin Dashboard</h2>
+      <p className="text-sm text-muted-foreground">Welcome to the institutional management portal</p>
     </div>
 
     <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
@@ -104,7 +104,7 @@ export default function AdminDashboard() {
         <CardHeader>
           <CardTitle className="text-lg font-semibold">Daily Activity Trend</CardTitle>
         </CardHeader>
-        <CardContent className="h-[300px] p-0 pb-4 flex items-center justify-center">
+        <CardContent className="h-[220px] sm:h-[300px] p-0 pb-4 flex items-center justify-center">
           {dailyActivityData.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={dailyActivityData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
@@ -137,7 +137,7 @@ export default function AdminDashboard() {
         <CardHeader>
           <CardTitle className="text-lg font-semibold">Department Performance</CardTitle>
         </CardHeader>
-        <CardContent className="h-[300px] p-0 pb-4 flex items-center justify-center">
+        <CardContent className="h-[220px] sm:h-[300px] p-0 pb-4 flex items-center justify-center">
           {departmentPerformanceData.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
               <BarChart layout="vertical" data={departmentPerformanceData} margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
