@@ -14,6 +14,7 @@ import DepartmentList from "@/pages/dashboard/DepartmentList";
 import UserProfile from "@/pages/dashboard/UserProfile";
 import AdminSettings from "@/pages/dashboard/AdminSettings";
 import FacultyDashboard from "@/pages/dashboard/FacultyDashboard";
+import FacultyStudents from "@/pages/dashboard/FacultyStudents";
 import StudentDashboard from "@/pages/dashboard/StudentDashboard";
 import IndustryDashboard from "@/pages/dashboard/IndustryDashboard";
 import Chat from "@/pages/Chat";
@@ -42,6 +43,7 @@ const App = () => <QueryClientProvider client={queryClient}>
           <Route path="/dashboard/admin/user/:id" element={<ProtectedRoute allowedRoles={["super-admin"]}><UserProfile /></ProtectedRoute>} />
           <Route path="/dashboard/admin/settings" element={<ProtectedRoute allowedRoles={["super-admin"]}><AdminSettings /></ProtectedRoute>} />
           <Route path="/dashboard/faculty" element={<ProtectedRoute allowedRoles={["admin"]}><FacultyDashboard /></ProtectedRoute>} />
+          <Route path="/dashboard/faculty/students" element={<ProtectedRoute allowedRoles={["admin"]}><FacultyStudents /></ProtectedRoute>} />
           <Route path="/dashboard/student" element={<ProtectedRoute allowedRoles={["student"]}><StudentDashboard /></ProtectedRoute>} />
           <Route path="/dashboard/industry" element={<ProtectedRoute allowedRoles={["industry_partner"]}><IndustryDashboard /></ProtectedRoute>} />
           <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />

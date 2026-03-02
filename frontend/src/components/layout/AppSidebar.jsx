@@ -36,7 +36,7 @@ const navByRole = {
   }, {
     label: "Students",
     icon: GraduationCap,
-    path: "/dashboard/admin/users"
+    path: "/dashboard/faculty/students"
   }, {
     label: "Community",
     icon: Newspaper,
