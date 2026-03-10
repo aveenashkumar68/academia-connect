@@ -5,7 +5,7 @@ import api from "@/lib/api";
 import { connectSocket, disconnectSocket } from "@/lib/socket";
 import { toast } from "sonner";
 import {
-  MessageSquare, Search, Send, Users, ArrowLeft, Circle, Plus, X, Check, UsersRound
+  MessageSquare, Search, Send, Users, ArrowLeft, Circle, Plus, X, Check, UsersRound, Trash2
 } from "lucide-react";
 
 /* ───── colour palette for group avatars ───── */
@@ -47,6 +47,9 @@ export default function Chat() {
   const [cgSelected, setCgSelected] = useState([]);   // member ids
   const [cgSearch, setCgSearch] = useState("");
   const [cgSubmitting, setCgSubmitting] = useState(false);
+
+  /* ───── DM role filter ───── */
+  const [roleFilter, setRoleFilter] = useState("all"); // "all" | "admin" | "student" | "super-admin"
 
   /* ───── refs ───── */
   const scrollRef = useRef(null);
@@ -275,6 +278,40 @@ export default function Chat() {
     );
   };
 
+  /* ───── Delete-group handler ───── */
+  const handleDeleteGroup = async (groupId) => {
+    if (!window.confirm("Are you sure you want to delete this group? All messages will be lost.")) return;
+    try {
+      await api.delete(`/groups/${groupId}`);
+      setGroups((prev) => prev.filter((g) => g._id !== groupId));
+      if (selectedGroup?._id === groupId) {
+        setSelectedGroup(null);
+        setGroupMessages([]);
+        setShowContacts(true);
+      }
+      toast.success("Group deleted");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to delete group");
+    }
+  };
+
+  /* ───── Leave-group handler ───── */
+  const handleLeaveGroup = async (groupId) => {
+    if (!window.confirm("Are you sure you want to leave this group?")) return;
+    try {
+      await api.post(`/groups/${groupId}/leave`);
+      setGroups((prev) => prev.filter((g) => g._id !== groupId));
+      if (selectedGroup?._id === groupId) {
+        setSelectedGroup(null);
+        setGroupMessages([]);
+        setShowContacts(true);
+      }
+      toast.success("You have left the group");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to leave group");
+    }
+  };
+
   /* ───── helpers ───── */
   const isOnline = (userId) => onlineUsers.includes(userId);
   const roleLabel = (r) =>
@@ -283,9 +320,11 @@ export default function Chat() {
     name ? name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2) : email?.charAt(0).toUpperCase() || "U";
   const fmtTime = (d) => new Date(d).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
-  const filteredContacts = contacts.filter((c) =>
-    (c.name || c.email || "").toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredContacts = contacts.filter((c) => {
+    const matchSearch = (c.name || c.email || "").toLowerCase().includes(searchTerm.toLowerCase());
+    const matchRole = roleFilter === "all" || c.role === roleFilter;
+    return matchSearch && matchRole;
+  });
   const filteredGroups = groups.filter((g) =>
     g.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -329,8 +368,8 @@ export default function Chat() {
               <button
                 onClick={() => setActiveTab("dm")}
                 className={`flex-1 py-1.5 rounded-md text-xs font-semibold transition-all ${activeTab === "dm"
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
                   }`}
               >
                 DMs
@@ -338,8 +377,8 @@ export default function Chat() {
               <button
                 onClick={() => setActiveTab("group")}
                 className={`flex-1 py-1.5 rounded-md text-xs font-semibold transition-all ${activeTab === "group"
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
                   }`}
               >
                 Groups
@@ -364,6 +403,26 @@ export default function Chat() {
             {/* ── DM contacts tab ── */}
             {activeTab === "dm" && (
               <>
+                {/* Role filter pills */}
+                <div className="flex gap-1.5 px-3 pt-3 pb-1 flex-wrap">
+                  {[
+                    { key: "all", label: "All" },
+                    { key: "admin", label: "Faculty" },
+                    { key: "student", label: "Student" },
+                    { key: "super-admin", label: "Admin" },
+                  ].map(({ key, label }) => (
+                    <button
+                      key={key}
+                      onClick={() => setRoleFilter(key)}
+                      className={`px-3 py-1 rounded-full text-xs font-semibold border transition-all ${roleFilter === key
+                          ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                          : "bg-muted/40 text-muted-foreground border-border hover:bg-muted"
+                        }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
                 {loadingContacts ? (
                   <p className="text-center py-10 text-sm text-muted-foreground">Loading contacts...</p>
                 ) : filteredContacts.length === 0 ? (
@@ -377,8 +436,8 @@ export default function Chat() {
                       key={c._id}
                       onClick={() => selectContact(c)}
                       className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50 border-l-[3px] ${selectedUser?._id === c._id
-                          ? "bg-muted/50 border-primary"
-                          : "border-transparent"
+                        ? "bg-muted/50 border-primary"
+                        : "border-transparent"
                         }`}
                     >
                       <div className="relative shrink-0">
@@ -448,8 +507,8 @@ export default function Chat() {
                       key={g._id}
                       onClick={() => selectGroup(g)}
                       className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50 border-l-[3px] ${selectedGroup?._id === g._id
-                          ? "bg-muted/50 border-primary"
-                          : "border-transparent"
+                        ? "bg-muted/50 border-primary"
+                        : "border-transparent"
                         }`}
                     >
                       <div className={`h-11 w-11 rounded-full ${GROUP_COLORS[g.colorIndex % GROUP_COLORS.length]} flex items-center justify-center text-white font-bold text-sm shrink-0`}>
@@ -546,8 +605,8 @@ export default function Chat() {
                             </div>
                             <div>
                               <div className={`px-4 py-2.5 rounded-2xl text-sm ${isMine
-                                  ? "bg-primary text-primary-foreground rounded-br-md"
-                                  : "bg-card border border-border/50 text-foreground rounded-bl-md shadow-sm"
+                                ? "bg-primary text-primary-foreground rounded-br-md"
+                                : "bg-card border border-border/50 text-foreground rounded-bl-md shadow-sm"
                                 }`}>
                                 {msg.content}
                               </div>
@@ -592,20 +651,42 @@ export default function Chat() {
             /* ─── Group chat area ─── */
             <>
               {/* Group Header */}
-              <div className="px-4 py-3 border-b border-border/50 flex items-center gap-3">
+              <div className="px-3 sm:px-4 py-3 border-b border-border/50 flex items-center gap-3">
                 <button onClick={() => setShowContacts(true)} className="md:hidden p-1 -ml-1 text-muted-foreground hover:text-foreground transition">
                   <ArrowLeft className="h-5 w-5" />
                 </button>
-                <div className={`h-10 w-10 rounded-full ${GROUP_COLORS[selectedGroup.colorIndex % GROUP_COLORS.length]} flex items-center justify-center text-white font-bold text-sm shrink-0`}>
+                <div className={`h-9 w-9 sm:h-10 sm:w-10 rounded-full ${GROUP_COLORS[selectedGroup.colorIndex % GROUP_COLORS.length]} flex items-center justify-center text-white font-bold text-sm shrink-0`}>
                   {selectedGroup.name.charAt(0).toUpperCase()}
                 </div>
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <h3 className="text-sm font-semibold text-foreground truncate">{selectedGroup.name}</h3>
                   <p className="text-xs text-muted-foreground truncate">
                     {selectedGroup.members?.length || 0} members
+                    {(() => {
+                      const onlineCount = (selectedGroup.members || []).filter(m => isOnline(m._id || m)).length;
+                      return onlineCount > 0 ? <span className="text-green-500"> • {onlineCount} online</span> : null;
+                    })()}
                     {selectedGroup.description ? ` • ${selectedGroup.description}` : ""}
                   </p>
                 </div>
+                {/* Delete or Leave button based on role */}
+                {selectedGroup.creator?._id === user?._id || selectedGroup.creator === user?._id ? (
+                  <button
+                    onClick={() => handleDeleteGroup(selectedGroup._id)}
+                    title="Delete group"
+                    className="shrink-0 p-2 rounded-lg text-red-500 hover:bg-red-50 transition"
+                  >
+                    <Trash2 className="h-4 w-4 sm:h-5 sm:w-5" />
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handleLeaveGroup(selectedGroup._id)}
+                    title="Leave group"
+                    className="shrink-0 flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-semibold text-orange-600 hover:bg-orange-50 border border-orange-200 transition"
+                  >
+                    <ArrowLeft className="h-3.5 w-3.5" /> Exit
+                  </button>
+                )}
               </div>
 
               {/* Group Messages */}
@@ -644,8 +725,8 @@ export default function Chat() {
                                 <p className="text-[10px] text-muted-foreground mb-0.5 ml-1">{senderName}</p>
                               )}
                               <div className={`px-4 py-2.5 rounded-2xl text-sm ${isMine
-                                  ? "bg-primary text-primary-foreground rounded-br-md"
-                                  : "bg-card border border-border/50 text-foreground rounded-bl-md shadow-sm"
+                                ? "bg-primary text-primary-foreground rounded-br-md"
+                                : "bg-card border border-border/50 text-foreground rounded-bl-md shadow-sm"
                                 }`}>
                                 {msg.content}
                               </div>

@@ -140,9 +140,9 @@ export default function FacultyStudents() {
 
     const toggleDomain = (domain) => {
         setFormData(prev => {
-            const updated = prev.domains.includes(domain)
-                ? prev.domains.filter(d => d !== domain)
-                : [...prev.domains, domain];
+            // If already selecting the exact same domain, clicking again unselects it.
+            // Otherwise, set it as the only domain instead of appending to array.
+            const updated = prev.domains.includes(domain) ? [] : [domain];
             return { ...prev, domains: updated };
         });
     };
@@ -211,9 +211,8 @@ export default function FacultyStudents() {
 
     const toggleReplaceDomain = (domain) => {
         setReplaceForm(prev => {
-            const updated = prev.domains.includes(domain)
-                ? prev.domains.filter(d => d !== domain)
-                : [...prev.domains, domain];
+            // Similarly, enforce single-domain selection
+            const updated = prev.domains.includes(domain) ? [] : [domain];
             return { ...prev, domains: updated };
         });
     };
@@ -231,7 +230,7 @@ export default function FacultyStudents() {
         setCreating(true);
         try {
             const payload = { ...replaceForm, domain: replaceForm.domains.join(', ') };
-            await api.post(`/users/admin/${replacingStudent._id}/replace`, payload);
+            await api.post(`/users/student/${replacingStudent._id}/replace`, payload);
             showMessage("Student replaced successfully! Credentials sent to new member.");
             setReplaceOpen(false);
             setReplacingStudent(null);
@@ -348,7 +347,7 @@ export default function FacultyStudents() {
                             </div>
 
                             <div className="mt-6 sm:mt-8">
-                                <Label className="text-[14px] font-semibold text-[#1d3c6b] mb-3 flex items-center gap-1.5"><Code className="w-4 h-4" /> Domains (select at least one)</Label>
+                                <Label className="text-[14px] font-semibold text-[#1d3c6b] mb-3 flex items-center gap-1.5"><Code className="w-4 h-4" /> Domain (select exactly one)</Label>
                                 <div className="flex flex-wrap gap-4 sm:gap-6 bg-[#f0f6ff] rounded-2xl sm:rounded-[26px] p-4 sm:p-5">
                                     {!selectedDept && <span className="text-sm text-[#546f8b]">Select a department to view domains.</span>}
                                     {selectedDept?.domains?.map(domain => {
@@ -670,7 +669,7 @@ export default function FacultyStudents() {
                                         </div>
 
                                         <div className="mt-5">
-                                            <Label className="text-sm font-semibold text-[#1d3c6b] mb-2 block">Select domains for new student</Label>
+                                            <Label className="text-sm font-semibold text-[#1d3c6b] mb-2 block">Select exactly one domain for new student</Label>
                                             <div className="flex flex-wrap gap-4 sm:gap-6 bg-[#e9f0fa] rounded-2xl p-4">
                                                 {!replaceDept && <span className="text-sm text-[#546f8b]">Select a department to view domains.</span>}
                                                 {replaceDept?.domains?.map(domain => (
