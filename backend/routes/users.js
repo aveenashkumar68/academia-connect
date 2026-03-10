@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 import User from '../models/User.js';
 import Notification from '../models/Notification.js';
 import { protect, authorize } from '../middleware/auth.js';
-import { sendCredentialsEmailAsync } from '../utils/mailer.js';
+import { sendCredentialsEmail } from '../utils/mailer.js';
 import crypto from 'crypto';
 
 const router = express.Router();
@@ -26,6 +26,7 @@ router.post('/admin', protect, authorize('super-admin'), async (req, res) => {
         }
 
         const unhashedPassword = generateRandomPassword();
+        console.log(unhashedPassword);
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(unhashedPassword, salt);
 
@@ -40,8 +41,8 @@ router.post('/admin', protect, authorize('super-admin'), async (req, res) => {
         });
 
         if (user) {
-            // Send email in background — don't block the response
-            sendCredentialsEmailAsync(email, 'Admin', email, unhashedPassword);
+            // Await email sending to guarantee delivery on serverless
+            await sendCredentialsEmail(email, 'Admin', email, unhashedPassword);
 
             // Auto-create notification
             await Notification.create({
@@ -95,8 +96,8 @@ router.post('/student', protect, authorize('admin'), async (req, res) => {
         });
 
         if (user) {
-            // Send email in background — don't block the response
-            sendCredentialsEmailAsync(email, 'Student', email, unhashedPassword);
+            // Await email sending to guarantee delivery on serverless
+            await sendCredentialsEmail(email, 'Student', email, unhashedPassword);
 
             // Auto-create notification
             const creator = await User.findById(req.user.id).select('name');
@@ -292,8 +293,8 @@ router.get('/domain/:domain', protect, authorize('super-admin'), async (req, res
 
 // @route   DELETE /api/users/:id
 // @desc    Delete a user
-// @access  Private / Super-Admin
-router.delete('/:id', protect, authorize('super-admin'), async (req, res) => {
+// @access  Private / Super-Admin & Admin
+router.delete('/:id', protect, authorize('super-admin', 'admin'), async (req, res) => {
     try {
         const user = await User.findById(req.params.id);
         if (!user) {
@@ -302,8 +303,99 @@ router.delete('/:id', protect, authorize('super-admin'), async (req, res) => {
         if (user.role === 'super-admin') {
             return res.status(403).json({ message: 'Cannot delete super-admin' });
         }
+
+        // Admin (Faculty) authorization check: ensure the user being deleted is a student of their domain
+        if (req.user.role === 'admin') {
+            if (user.role !== 'student') {
+                return res.status(403).json({ message: 'You can only delete students' });
+            }
+
+            const faculty = await User.findById(req.user.id);
+            if (!faculty) return res.status(403).json({ message: 'Faculty not found' });
+
+            let allowed = false;
+            // Strict domain check matching the GET logic
+            if (faculty.domain && user.domain) {
+                const fDomains = faculty.domain.split(',').map(d => d.trim().toLowerCase());
+                const sDomains = user.domain.split(',').map(d => d.trim().toLowerCase());
+                allowed = sDomains.some(sd => fDomains.includes(sd));
+            } else if (faculty.department && user.department) {
+                allowed = faculty.department.toLowerCase() === user.department.toLowerCase();
+            }
+
+            if (!allowed) {
+                return res.status(403).json({ message: 'You cannot delete a student outside of your assigned domains' });
+            }
+        }
+
+        // If the user being deleted is an admin (faculty), delete their assigned students
+        if (user.role === 'admin') {
+            const query = { role: 'student' };
+            // Match students by domain if faculty has one
+            if (user.domain) {
+                const domains = user.domain.split(',').map(d => d.trim()).filter(Boolean);
+                if (domains.length > 0) {
+                    const escapedDomains = domains.map(d => d.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&'));
+                    query.domain = { $regex: escapedDomains.join('|'), $options: 'i' };
+                } else {
+                    query.domain = user.domain;
+                }
+            } else if (user.department) {
+                query.department = user.department;
+            }
+
+            // Delete all matched students
+            await User.deleteMany(query);
+        }
+
         await User.findByIdAndDelete(req.params.id);
         res.json({ message: 'User deleted successfully' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   PUT /api/users/:id
+// @desc    Update a user
+// @access  Private / Super-Admin & Admin
+router.put('/:id', protect, authorize('super-admin', 'admin'), async (req, res) => {
+    try {
+        const user = await User.findById(req.params.id);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Admin (Faculty) authorization check
+        if (req.user.role === 'admin') {
+            if (user.role !== 'student') return res.status(403).json({ message: 'You can only modify students' });
+            const faculty = await User.findById(req.user.id);
+            if (!faculty) return res.status(403).json({ message: 'Faculty not found' });
+
+            let allowed = false;
+            if (faculty.domain && user.domain) {
+                const fDomains = faculty.domain.split(',').map(d => d.trim().toLowerCase());
+                const sDomains = user.domain.split(',').map(d => d.trim().toLowerCase());
+                allowed = sDomains.some(sd => fDomains.includes(sd));
+            } else if (faculty.department && user.department) {
+                allowed = faculty.department.toLowerCase() === user.department.toLowerCase();
+            }
+
+            if (!allowed) return res.status(403).json({ message: 'You cannot edit a student outside of your assigned domains' });
+        }
+
+        const { name, email, phone, year, regNo, department, domain } = req.body;
+
+        if (name) user.name = name;
+        if (email) user.email = email;
+        if (phone) user.phone = phone;
+        if (year) user.year = year;
+        if (regNo) user.regNo = regNo;
+        if (department) user.department = department;
+        if (domain) user.domain = domain;
+
+        await user.save();
+        res.json({ message: 'User updated successfully', user });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Server error' });
@@ -346,7 +438,7 @@ router.post('/admin/:id/replace', protect, authorize('super-admin'), async (req,
         });
 
         if (newUser) {
-            sendCredentialsEmailAsync(email, 'Admin', email, unhashedPassword);
+            await sendCredentialsEmail(email, 'Admin', email, unhashedPassword);
 
             await Notification.create({
                 type: 'user_created',
@@ -360,6 +452,85 @@ router.post('/admin/:id/replace', protect, authorize('super-admin'), async (req,
                 email: newUser.email,
                 role: newUser.role,
                 message: 'Faculty replaced. Credentials email is being sent to the new member.',
+            });
+        } else {
+            res.status(400).json({ message: 'Failed to create replacement' });
+        }
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   POST /api/users/student/:id/replace
+// @desc    Replace a student — delete old, create new
+// @access  Private / Super-Admin & Admin
+router.post('/student/:id/replace', protect, authorize('super-admin', 'admin'), async (req, res) => {
+    try {
+        const oldUser = await User.findById(req.params.id);
+        if (!oldUser || oldUser.role !== 'student') {
+            return res.status(404).json({ message: 'Student not found' });
+        }
+
+        // Admin authorization check
+        if (req.user.role === 'admin') {
+            const faculty = await User.findById(req.user.id);
+            if (!faculty) return res.status(403).json({ message: 'Faculty not found' });
+
+            // Ensure old user is from their domain
+            let allowed = false;
+            if (faculty.domain && oldUser.domain) {
+                const fDomains = faculty.domain.split(',').map(d => d.trim().toLowerCase());
+                const sDomains = oldUser.domain.split(',').map(d => d.trim().toLowerCase());
+                allowed = sDomains.some(sd => fDomains.includes(sd));
+            } else if (faculty.department && oldUser.department) {
+                allowed = faculty.department.toLowerCase() === oldUser.department.toLowerCase();
+            }
+
+            if (!allowed) return res.status(403).json({ message: 'Cannot replace a student outside your domains' });
+        }
+
+        const { email, name, department, phone, domain, year, regNo } = req.body;
+
+        const emailExists = await User.findOne({ email });
+        if (emailExists) {
+            return res.status(400).json({ message: 'Email already in use' });
+        }
+
+        await User.findByIdAndDelete(req.params.id);
+
+        const unhashedPassword = generateRandomPassword();
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(unhashedPassword, salt);
+
+        const newUser = await User.create({
+            email,
+            password: hashedPassword,
+            role: 'student',
+            name,
+            department,
+            phone,
+            domain,
+            year,
+            regNo
+        });
+
+        if (newUser) {
+            await sendCredentialsEmail(email, 'Student', email, unhashedPassword);
+
+            const creator = await User.findById(req.user.id).select('name role');
+            await Notification.create({
+                type: 'user_created',
+                message: `Student ${oldUser.name || oldUser.email} replaced by ${name || email}`,
+                actorName: creator?.name || 'Admin',
+                actorRole: creator?.role || 'admin',
+            });
+
+            res.status(201).json({
+                _id: newUser._id,
+                email: newUser.email,
+                role: newUser.role,
+                message: 'Student replaced. Credentials email is being sent to the new member.',
             });
         } else {
             res.status(400).json({ message: 'Failed to create replacement' });

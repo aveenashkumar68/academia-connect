@@ -15,6 +15,7 @@ export default function FacultyDashboard() {
   const { user } = useAuth();
   const [departments, setDepartments] = useState([]);
   const [allUsers, setAllUsers] = useState([]);
+  const [facultyMembers, setFacultyMembers] = useState([]);
   const [myStudents, setMyStudents] = useState([]);
 
   const [showStudentModal, setShowStudentModal] = useState(false);
@@ -38,6 +39,15 @@ export default function FacultyDashboard() {
     }
   };
 
+  const fetchFaculty = async () => {
+    try {
+      const { data } = await api.get("/users/role/admin");
+      setFacultyMembers(data);
+    } catch {
+      // non-critical
+    }
+  };
+
   const fetchMyStudents = async () => {
     if (!user?._id) return;
     try {
@@ -51,12 +61,13 @@ export default function FacultyDashboard() {
   useEffect(() => {
     fetchDepartments();
     fetchUsers();
+    fetchFaculty();
     fetchMyStudents();
   }, [user]);
 
   // Derived data
   const students = useMemo(() => allUsers.filter(u => u.role === "student"), [allUsers]);
-  const facultyMembers = useMemo(() => allUsers.filter(u => u.role === "admin"), [allUsers]);
+  // facultyMembers is now fetched directly, not derived from allUsers
 
   const getBreakdown = (users) => {
     const deptMap = {};

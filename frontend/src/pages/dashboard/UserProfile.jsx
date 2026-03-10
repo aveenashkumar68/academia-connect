@@ -93,11 +93,9 @@ export default function UserProfile() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      // Since we might not have a dedicated edit endpoint for faculty yet,
-      // let's assume superadmin/admin can update users.
-      // Note: If backend doesn't support this yet, it might fail.
       const res = await api.put(`/users/${id}`, editForm);
-      setUser(res.data);
+      // Backend returns { message, user } — read the user object
+      setUser(res.data.user || res.data);
       setIsEditing(false);
       toast.success("Profile updated successfully");
     } catch (error) {

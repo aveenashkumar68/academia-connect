@@ -134,4 +134,53 @@ router.post('/:id/messages', protect, async (req, res) => {
     }
 });
 
+// @route   POST /api/groups/:id/leave
+// @desc    Leave a group (non-creator members only)
+// @access  Private
+router.post('/:id/leave', protect, async (req, res) => {
+    try {
+        const group = await Group.findById(req.params.id);
+        if (!group) return res.status(404).json({ message: 'Group not found' });
+
+        if (group.creator.toString() === req.user.id) {
+            return res.status(400).json({ message: 'Creator cannot leave. You can only delete the group.' });
+        }
+
+        if (!group.members.map(m => m.toString()).includes(req.user.id)) {
+            return res.status(400).json({ message: 'You are not a member of this group' });
+        }
+
+        group.members = group.members.filter(m => m.toString() !== req.user.id);
+        await group.save();
+
+        res.json({ message: 'You have left the group' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   DELETE /api/groups/:id
+// @desc    Delete a group (creator only)
+// @access  Private
+router.delete('/:id', protect, async (req, res) => {
+    try {
+        const group = await Group.findById(req.params.id);
+        if (!group) return res.status(404).json({ message: 'Group not found' });
+
+        if (group.creator.toString() !== req.user.id) {
+            return res.status(403).json({ message: 'Only the group creator can delete this group' });
+        }
+
+        // Delete all messages in the group first
+        await GroupMessage.deleteMany({ group: req.params.id });
+        await Group.findByIdAndDelete(req.params.id);
+
+        res.json({ message: 'Group deleted successfully' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
 export default router;
