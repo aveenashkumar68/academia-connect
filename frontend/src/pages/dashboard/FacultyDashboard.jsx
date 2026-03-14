@@ -1,4 +1,6 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import Skeleton from "react-loading-skeleton";
 import api from "@/lib/api";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -13,57 +15,19 @@ import {
 export default function FacultyDashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [departments, setDepartments] = useState([]);
-  const [allUsers, setAllUsers] = useState([]);
-  const [facultyMembers, setFacultyMembers] = useState([]);
-  const [myStudents, setMyStudents] = useState([]);
+  const { data: departments = [] } = useQuery({ queryKey: ['departments'], queryFn: async () => (await api.get("/departments")).data });
+  const { data: allUsers = [], isLoading: usersLoading } = useQuery({ queryKey: ['allUsers'], queryFn: async () => (await api.get("/chat/users")).data });
+  const { data: facultyMembers = [], isLoading: facultyLoading } = useQuery({ queryKey: ['faculty'], queryFn: async () => (await api.get("/users/role/admin")).data });
+  const { data: myStudents = [], isLoading: myStudentsLoading } = useQuery({ 
+      queryKey: ['my-students', user?._id], 
+      queryFn: async () => (await api.get(`/users/${user._id}/students`)).data,
+      enabled: !!user?._id
+  });
+
+  const loading = usersLoading || facultyLoading || myStudentsLoading;
 
   const [showStudentModal, setShowStudentModal] = useState(false);
   const [showFacultyModal, setShowFacultyModal] = useState(false);
-
-  const fetchDepartments = async () => {
-    try {
-      const response = await api.get("/departments");
-      setDepartments(response.data);
-    } catch (error) {
-      console.error("Failed to fetch departments");
-    }
-  };
-
-  const fetchUsers = async () => {
-    try {
-      const { data } = await api.get("/chat/users");
-      setAllUsers(data);
-    } catch {
-      // non-critical
-    }
-  };
-
-  const fetchFaculty = async () => {
-    try {
-      const { data } = await api.get("/users/role/admin");
-      setFacultyMembers(data);
-    } catch {
-      // non-critical
-    }
-  };
-
-  const fetchMyStudents = async () => {
-    if (!user?._id) return;
-    try {
-      const { data } = await api.get(`/users/${user._id}/students`);
-      setMyStudents(data);
-    } catch {
-      // non-critical
-    }
-  };
-
-  useEffect(() => {
-    fetchDepartments();
-    fetchUsers();
-    fetchFaculty();
-    fetchMyStudents();
-  }, [user]);
 
   // Derived data
   const students = useMemo(() => allUsers.filter(u => u.role === "student"), [allUsers]);
@@ -198,7 +162,7 @@ export default function FacultyDashboard() {
             <GraduationCap className="w-6 h-6 sm:w-7 sm:h-7 text-[#2b4a81]" />
           </div>
           <div className="min-w-0">
-            <h3 className="text-[28px] sm:text-[34px] font-bold text-[#16212e] leading-tight tracking-tight">{students.length.toLocaleString()}</h3>
+            <h3 className="text-[28px] sm:text-[34px] font-bold text-[#16212e] leading-tight tracking-tight">{loading ? <Skeleton width={50} /> : students.length.toLocaleString()}</h3>
             <p className="text-[14px] sm:text-[16px] font-medium text-[#546f8b] mt-1 flex items-center gap-1.5">
               Total students <ArrowRight className="w-3 h-3 opacity-70" />
             </p>
@@ -216,7 +180,7 @@ export default function FacultyDashboard() {
             <Users className="w-6 h-6 sm:w-7 sm:h-7 text-[#2b4a81]" />
           </div>
           <div className="min-w-0">
-            <h3 className="text-[28px] sm:text-[34px] font-bold text-[#16212e] leading-tight tracking-tight">{facultyMembers.length}</h3>
+            <h3 className="text-[28px] sm:text-[34px] font-bold text-[#16212e] leading-tight tracking-tight">{loading ? <Skeleton width={50} /> : facultyMembers.length}</h3>
             <p className="text-[14px] sm:text-[16px] font-medium text-[#546f8b] mt-1 flex items-center gap-1.5">
               Total faculty <ArrowRight className="w-3 h-3 opacity-70" />
             </p>
@@ -234,7 +198,7 @@ export default function FacultyDashboard() {
             <BookOpen className="w-6 h-6 sm:w-7 sm:h-7 text-[#2b4a81]" />
           </div>
           <div className="min-w-0">
-            <h3 className="text-[28px] sm:text-[34px] font-bold text-[#16212e] leading-tight tracking-tight">{myStudents.length}</h3>
+            <h3 className="text-[28px] sm:text-[34px] font-bold text-[#16212e] leading-tight tracking-tight">{loading ? <Skeleton width={50} /> : myStudents.length}</h3>
             <p className="text-[14px] sm:text-[16px] font-medium text-[#546f8b] mt-1 flex items-center gap-1.5">
               My Assigned Students <ArrowRight className="w-3 h-3 opacity-70" />
             </p>

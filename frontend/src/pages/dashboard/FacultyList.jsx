@@ -1,4 +1,6 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import Skeleton from "react-loading-skeleton";
 import api from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
@@ -20,10 +22,8 @@ import {
 export default function FacultyList() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const isSuperAdmin = user?.role === "super-admin";
-  const [faculty, setFaculty] = useState([]);
-  const [departments, setDepartments] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [deptFilter, setDeptFilter] = useState("all");
@@ -39,30 +39,27 @@ export default function FacultyList() {
   const [replaceSelectedDept, setReplaceSelectedDept] = useState(null);
   const [replaceForm, setReplaceForm] = useState({ name: "", email: "", department: "", phone: "", domain: "" });
 
-  const fetchFaculty = async () => {
-    try {
+  const { data: faculty = [], isLoading: facultyLoading, isError: facultyError, refetch: fetchFaculty } = useQuery({
+    queryKey: ['faculty'],
+    queryFn: async () => {
       const response = await api.get("/users/role/admin");
-      setFaculty(response.data);
-    } catch (error) {
-      toast.error("Failed to fetch faculty list");
-    } finally {
-      setLoading(false);
+      return response.data;
     }
-  };
+  });
 
-  const fetchDepartments = async () => {
-    try {
+  const { data: departments = [], isLoading: deptsLoading } = useQuery({
+    queryKey: ['departments'],
+    queryFn: async () => {
       const response = await api.get("/departments");
-      setDepartments(response.data);
-    } catch (error) {
-      console.error("Failed to fetch departments");
+      return response.data;
     }
-  };
+  });
 
-  useEffect(() => {
-    fetchFaculty();
-    fetchDepartments();
-  }, []);
+  const loading = facultyLoading || deptsLoading;
+
+  if (facultyError) {
+    toast.error("Failed to fetch faculty list");
+  }
 
   // Filtered faculty
   const filteredFaculty = useMemo(() => {
@@ -129,7 +126,7 @@ export default function FacultyList() {
     try {
       await api.delete(`/users/${id}`);
       toast.success("Faculty deleted successfully");
-      fetchFaculty();
+      queryClient.invalidateQueries({ queryKey: ['faculty'] });
     } catch (error) {
       toast.error(error.response?.data?.message || "Failed to delete faculty");
     }
@@ -158,7 +155,7 @@ export default function FacultyList() {
       setIsReplaceOpen(false);
       setReplacingFaculty(null);
       setReplaceForm({ name: "", email: "", department: "", phone: "", domain: "" });
-      fetchFaculty();
+      queryClient.invalidateQueries({ queryKey: ['faculty'] });
     } catch (error) {
       toast.error(error.response?.data?.message || "Failed to replace faculty");
     } finally {
@@ -237,22 +234,27 @@ export default function FacultyList() {
           {/* Mobile Card Layout */}
           <div className="md:hidden space-y-3">
             {loading ? (
-              <div className="text-center py-10 text-muted-foreground">Loading...</div>
+              <div className="space-y-4">
+                <Skeleton height={140} className="w-full rounded-xl" count={3} />
+              </div>
             ) : filteredFaculty.length === 0 ? (
               <div className="text-center py-10 text-muted-foreground">No faculty members found</div>
             ) : (
               filteredFaculty.map((f) => (
                 <div key={f._id} className="bg-white border border-border/50 rounded-xl p-4 space-y-3">
                   {/* Top: Avatar + Name */}
-                  <div className="flex items-center gap-3">
-                    <Avatar className="h-10 w-10 shrink-0">
+                  <div 
+                    className="flex items-center gap-3 cursor-pointer group"
+                    onClick={() => navigate(`/dashboard/admin/user/${f._id}`)}
+                  >
+                    <Avatar className="h-10 w-10 shrink-0 group-hover:ring-2 ring-blue-100 transition-all">
                       {f.profilePicture && <AvatarImage src={f.profilePicture} alt={f.name} />}
                       <AvatarFallback className="bg-blue-600 text-white text-xs font-bold">
                         {getInitials(f.name)}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-foreground truncate">{f.name || "N/A"}</p>
+                      <p className="font-semibold text-foreground truncate group-hover:text-blue-600 transition-colors">{f.name || "N/A"}</p>
                       <p className="text-xs text-muted-foreground truncate">{f.email}</p>
                     </div>
                   </div>
@@ -313,22 +315,25 @@ export default function FacultyList() {
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <TableRow><TableCell colSpan={5} className="text-center py-10">Loading...</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={5} className="py-10"><Skeleton height={40} count={5} /></TableCell></TableRow>
                 ) : filteredFaculty.length === 0 ? (
                   <TableRow><TableCell colSpan={5} className="text-center py-10 text-muted-foreground">No faculty members found</TableCell></TableRow>
                 ) : (
                   filteredFaculty.map((f) => (
                     <TableRow key={f._id} className="hover:bg-slate-50/80 transition-colors">
                       <TableCell>
-                        <div className="flex items-center gap-3">
-                          <Avatar className="h-9 w-9">
+                        <div 
+                          className="flex items-center gap-3 cursor-pointer group"
+                          onClick={() => navigate(`/dashboard/admin/user/${f._id}`)}
+                        >
+                          <Avatar className="h-9 w-9 group-hover:ring-2 ring-blue-100 transition-all">
                             {f.profilePicture && <AvatarImage src={f.profilePicture} alt={f.name} />}
                             <AvatarFallback className="bg-blue-600 text-white text-xs font-bold">
                               {getInitials(f.name)}
                             </AvatarFallback>
                           </Avatar>
                           <div className="min-w-0">
-                            <p className="font-semibold text-foreground truncate">{f.name || "N/A"}</p>
+                            <p className="font-semibold text-foreground truncate group-hover:text-blue-600 transition-colors">{f.name || "N/A"}</p>
                             <p className="text-xs text-muted-foreground truncate">{f.email}</p>
                           </div>
                         </div>
