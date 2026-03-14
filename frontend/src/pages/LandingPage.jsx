@@ -84,10 +84,10 @@ function LandingPage() {
                             </span>
                         </h1>
                         <p className="hero-subtitle">
-                            140 business domains | 18 engineering departments
+                            140 business domains | 18 Engineering and Business Disciplines
                         </p>
                         <p className="hero-description">
-                            Bridging technical depth with market opportunities — a clear map from engineering to industry.
+                            Bridging technical depth with market opportunities — A clear roadmap connecting institutions with industry collaboration.
                         </p>
                         <div className="hero-buttons">
                             <motion.button
@@ -130,7 +130,7 @@ function LandingPage() {
                     >
                         <h2 className="about-title">Mapping the unseen</h2>
                         <p className="about-subtitle">
-                            Project Mayaa systematically connects every engineering discipline with real‑world business domains.
+                            Project Mayaa systematically connects every engineering and business disciplines with real‑world business domains.
                         </p>
                     </motion.div>
 
@@ -311,7 +311,7 @@ function LandingPage() {
                             <ul className="contact-info">
                                 <li>
                                     <i className="fas fa-envelope contact-icon"></i>
-                                    <a href="mailto:hello@projectmayaa.com" className="contact-link">hello@projectmayaa.com</a>
+                                    <a href="mailto:projectmayaaexcelcolleges@gmail.com" className="contact-link">projectmayaaexcelcolleges@gmail.com</a>
                                 </li>
                                 <li>
                                     <i className="fas fa-phone contact-icon"></i>
@@ -319,7 +319,8 @@ function LandingPage() {
                                 </li>
                                 <li>
                                     <i className="fas fa-map-marker-alt contact-icon"></i>
-                                    <span className="contact-text">San Francisco, CA</span>
+                                    <span className="contact-text">NH-544, Salem Main Road, Sankari West, Pallakkapalayam, Pin:637 303.
+                                    Komarapalayam Namakkal Dt. Tamilnadu.</span>
                                 </li>
                             </ul>
                         </div>

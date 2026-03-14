@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import Skeleton from "react-loading-skeleton";
 import api from "@/lib/api";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Building2, Users, GraduationCap, Activity, LineChart as LineChartIcon, BarChart3 } from "lucide-react";
@@ -15,27 +17,33 @@ const COLORS = ['hsl(var(--primary))', 'hsl(var(--accent))', 'hsl(var(--chart-3)
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
-  const [stats, setStats] = useState({
-    students: 0,
-    faculty: 0,
-    departments: 0,
-    activities: 0
+  const queryClient = useQueryClient();
+
+  const { data: stats, isLoading: loading } = useQuery({
+    queryKey: ['dashboard-stats'],
+    queryFn: async () => {
+      const response = await api.get("/users/stats");
+      return response.data;
+    }
   });
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const response = await api.get("/users/stats");
-        setStats(response.data);
-      } catch (error) {
-        toast.error("Failed to fetch dashboard stats");
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchStats();
-  }, []);
+    // Prefetch frequent dashboard data to make transitions instant
+    queryClient.prefetchQuery({
+      queryKey: ['students'],
+      queryFn: async () => (await api.get("/users/role/student")).data
+    });
+    queryClient.prefetchQuery({
+      queryKey: ['faculty'],
+      queryFn: async () => (await api.get("/users/role/admin")).data
+    });
+    queryClient.prefetchQuery({
+      queryKey: ['departments'],
+      queryFn: async () => (await api.get("/departments")).data
+    });
+  }, [queryClient]);
+
+  const displayStats = stats || { students: 0, faculty: 0, departments: 0, activities: 0 };
 
   return <DashboardLayout>
     <div className="space-y-2 mb-6 sm:mb-8">
@@ -51,7 +59,7 @@ export default function AdminDashboard() {
         <CardContent className="p-6 flex items-center justify-between">
           <div className="space-y-1">
             <p className="text-sm font-medium text-muted-foreground">Total Students</p>
-            <p className="text-2xl font-bold text-foreground">{loading ? "..." : stats.students}</p>
+            <p className="text-2xl font-bold text-foreground">{loading ? <Skeleton width={40} /> : displayStats.students}</p>
           </div>
           <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
             <Users className="h-6 w-6 text-primary" />
@@ -65,7 +73,7 @@ export default function AdminDashboard() {
         <CardContent className="p-6 flex items-center justify-between">
           <div className="space-y-1">
             <p className="text-sm font-medium text-muted-foreground">Total Faculty</p>
-            <p className="text-2xl font-bold text-foreground">{loading ? "..." : stats.faculty}</p>
+            <p className="text-2xl font-bold text-foreground">{loading ? <Skeleton width={40} /> : displayStats.faculty}</p>
           </div>
           <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
             <GraduationCap className="h-6 w-6 text-primary" />
@@ -79,7 +87,7 @@ export default function AdminDashboard() {
         <CardContent className="p-6 flex items-center justify-between">
           <div className="space-y-1">
             <p className="text-sm font-medium text-muted-foreground">Departments</p>
-            <p className="text-2xl font-bold text-foreground">{loading ? "..." : stats.departments}</p>
+            <p className="text-2xl font-bold text-foreground">{loading ? <Skeleton width={40} /> : displayStats.departments}</p>
           </div>
           <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
             <Building2 className="h-6 w-6 text-primary" />
@@ -90,7 +98,7 @@ export default function AdminDashboard() {
         <CardContent className="p-6 flex items-center justify-between">
           <div className="space-y-1">
             <p className="text-sm font-medium text-muted-foreground">Total Activities</p>
-            <p className="text-2xl font-bold text-foreground">{loading ? "..." : stats.activities}</p>
+            <p className="text-2xl font-bold text-foreground">{loading ? <Skeleton width={40} /> : displayStats.activities}</p>
           </div>
           <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
             <Activity className="h-6 w-6 text-primary" />

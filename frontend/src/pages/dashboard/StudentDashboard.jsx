@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { useQuery } from "@tanstack/react-query";
+import Skeleton from "react-loading-skeleton";
 import api from "@/lib/api";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { GraduationCap, Users, UserSquare2, BookOpen, Trophy } from "lucide-react";
@@ -8,50 +9,45 @@ import { useNavigate } from "react-router-dom";
 export default function StudentDashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [profile, setProfile] = useState(null);
-  const [assignedFaculty, setAssignedFaculty] = useState([]);
-  const [userGroups, setUserGroups] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { data: profile, isLoading: isProfileLoading } = useQuery({
+    queryKey: ['user-profile', user?._id],
+    queryFn: async () => (await api.get(`/users/${user._id}`)).data,
+    enabled: !!user?._id
+  });
 
-  useEffect(() => {
-    if (!user?._id) return;
-    (async () => {
-      try {
-        const [profileRes, facultyRes, groupsRes] = await Promise.all([
-          api.get(`/users/${user._id}`),
-          api.get('/users/role/admin'),
-          api.get('/groups'),
-        ]);
-        setProfile(profileRes.data);
+  const { data: allFaculty = [], isLoading: isFacultyLoading } = useQuery({
+    queryKey: ['faculty'],
+    queryFn: async () => (await api.get('/users/role/admin')).data
+  });
 
-        const stProfile = profileRes.data;
-        const allFaculty = facultyRes.data;
-        const stDomains = (stProfile.domain || "").split(',').map(d => d.trim()).filter(Boolean);
+  const { data: groupsRes = [], isLoading: isGroupsLoading } = useQuery({
+    queryKey: ['groups'],
+    queryFn: async () => (await api.get('/groups')).data
+  });
 
-        const assigned = allFaculty.filter(f => {
-          if (f.department !== stProfile.department && !f.department) return false;
-          const fDomains = (f.domain || "").split(',').map(d => d.trim()).filter(Boolean);
-          if (stDomains.length > 0 && fDomains.length > 0) {
-            return fDomains.some(d => stDomains.includes(d));
-          }
-          return f.department === stProfile.department;
-        });
-        setAssignedFaculty(assigned);
+  const loading = isProfileLoading || isFacultyLoading || isGroupsLoading;
 
-        const groups = groupsRes.data.map(g => ({
-          _id: g._id,
-          name: g.name,
-          members: g.members?.length || 0,
-          role: g.creator?._id === user._id ? "Creator" : "Member",
-        }));
-        setUserGroups(groups);
-      } catch (err) {
-        console.error("Failed to load dashboard data", err);
-      } finally {
-        setLoading(false);
+  const assignedFaculty = (() => {
+    if (!profile) return [];
+    const stDomains = (profile.domain || "").split(',').map(d => d.trim()).filter(Boolean);
+    return allFaculty.filter(f => {
+      if (f.department !== profile.department && !f.department) return false;
+      const fDomains = (f.domain || "").split(',').map(d => d.trim()).filter(Boolean);
+      if (stDomains.length > 0 && fDomains.length > 0) {
+        return fDomains.some(d => stDomains.includes(d));
       }
-    })();
-  }, [user]);
+      return f.department === profile.department;
+    });
+  })();
+
+  const userGroups = (() => {
+    return groupsRes.map(g => ({
+      _id: g._id,
+      name: g.name,
+      members: g.members?.length || 0,
+      role: g.creator?._id === user?._id ? "Creator" : "Member",
+    }));
+  })();
 
   const getInitials = (name) => {
     if (!name) return "U";
@@ -64,7 +60,13 @@ export default function StudentDashboard() {
   if (loading) {
     return (
       <DashboardLayout title="Dashboard">
-        <div className="flex items-center justify-center py-20">Loading dashboard...</div>
+        <div className="max-w-[1200px] mx-auto pb-8 pt-5 text-center">
+            <Skeleton height={200} className="w-full rounded-2xl mb-8" />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6 lg:gap-8 mb-8">
+                <Skeleton height={300} className="w-full rounded-2xl" />
+                <Skeleton height={300} className="w-full rounded-2xl" />
+            </div>
+        </div>
       </DashboardLayout>
     );
   }

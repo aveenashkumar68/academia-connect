@@ -1,4 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import Skeleton from "react-loading-skeleton";
 import api from "@/lib/api";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,24 +10,19 @@ import { useNavigate } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 export default function StudentList() {
-  const [students, setStudents] = useState([]);
-  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  const fetchStudents = async () => {
-    try {
+  const { data: students = [], isLoading: loading, isError } = useQuery({
+    queryKey: ['students'],
+    queryFn: async () => {
       const response = await api.get("/users/role/student");
-      setStudents(response.data);
-    } catch (error) {
-      toast.error("Failed to fetch student list");
-    } finally {
-      setLoading(false);
+      return response.data;
     }
-  };
+  });
 
-  useEffect(() => {
-    fetchStudents();
-  }, []);
+  if (isError) {
+    toast.error("Failed to fetch student list");
+  }
 
   return (
     <DashboardLayout>
@@ -36,7 +33,9 @@ export default function StudentList() {
         </div>
 
         {loading ? (
-          <div className="text-center py-16 text-muted-foreground">Loading...</div>
+          <div className="space-y-4">
+            <Skeleton height={50} className="w-full" count={8} />
+          </div>
         ) : students.length === 0 ? (
           <div className="text-center py-16 text-muted-foreground">No students found</div>
         ) : (
