@@ -11,6 +11,7 @@ import postRoutes from './routes/posts.js';
 import notificationRoutes from './routes/notifications.js';
 import chatRoutes from './routes/chat.js';
 import groupRoutes from './routes/groups.js';
+import connectionRoutes from './routes/connections.js';
 import { seedSuperAdmin, seedDepartments } from './seed.js';
 
 dotenv.config();
@@ -115,6 +116,7 @@ app.use('/api/posts', postRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/groups', groupRoutes);
+app.use('/api/connections', connectionRoutes);
 
 // Database connection
 const PORT = process.env.PORT || 5000;
