@@ -54,18 +54,8 @@ export default function StudentDashboard() {
       } finally {
         setLoading(false);
       }
-      return f.department === profile.department;
-    });
-  })();
-
-  const userGroups = (() => {
-    return groupsRes.map(g => ({
-      _id: g._id,
-      name: g.name,
-      members: g.members?.length || 0,
-      role: g.creator?._id === user?._id ? "Creator" : "Member",
-    }));
-  })();
+    })();
+  }, [user?._id]);
 
   const getInitials = (name) => {
     if (!name) return "U";
