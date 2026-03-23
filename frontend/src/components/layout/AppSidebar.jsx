@@ -1,5 +1,7 @@
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate, useLocation } from "react-router-dom";
+import api from "@/lib/api";
 import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar";
 import { LayoutDashboard, MessageSquare, Users, Building2, GraduationCap, Briefcase, LogOut, Globe, Newspaper } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -91,6 +93,40 @@ export function AppSidebar() {
   const location = useLocation();
   const items = navByRole[role ?? "student"] ?? navByRole.student;
   const initials = user?.name?.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2) ?? "U";
+
+  const [chatUnread, setChatUnread] = useState(0);
+  const [communityUnread, setCommunityUnread] = useState(0);
+
+  useEffect(() => {
+    const fetchCounts = async () => {
+      try {
+        if (user) {
+          const [chatRes, communityRes] = await Promise.all([
+            api.get("/chat/unread-count"),
+            api.get("/notifications/community-unread")
+          ]);
+          setChatUnread(chatRes.data.count);
+          setCommunityUnread(communityRes.data.count);
+        }
+      } catch (err) {
+        console.error("Error fetching unread counts:", err);
+      }
+    };
+
+    fetchCounts();
+    const interval = setInterval(fetchCounts, 30000);
+    return () => clearInterval(interval);
+  }, [user]);
+
+  useEffect(() => {
+    if (location.pathname === "/community") {
+      api.put("/notifications/mark-community-read").catch(console.error);
+      setCommunityUnread(0);
+    } else if (location.pathname === "/chat") {
+      api.get("/chat/unread-count").then(res => setChatUnread(res.data.count)).catch(console.error);
+    }
+  }, [location.pathname]);
+
   return <Sidebar>
     <SidebarHeader className="p-4 border-b border-sidebar-border">
       <div className="flex items-center gap-3">
@@ -140,12 +176,26 @@ export function AppSidebar() {
         <SidebarGroupLabel>Navigation</SidebarGroupLabel>
         <SidebarGroupContent>
           <SidebarMenu>
-            {items.map(item => <SidebarMenuItem key={item.path}>
-              <SidebarMenuButton isActive={location.pathname === item.path} onClick={() => navigate(item.path)} tooltip={item.label}>
-                <item.icon className="h-4 w-4" />
-                <span>{item.label}</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>)}
+            {items.map(item => {
+              const showBadge = (item.label === "Chat" && chatUnread > 0) || (item.label === "Community" && communityUnread > 0);
+              const badgeCount = item.label === "Chat" ? chatUnread : communityUnread;
+              
+              return (
+                <SidebarMenuItem key={item.path}>
+                  <SidebarMenuButton isActive={location.pathname === item.path} onClick={() => navigate(item.path)} tooltip={item.label}>
+                    <div className="relative inline-flex items-center justify-center">
+                      <item.icon className="h-4 w-4" />
+                      {showBadge && (
+                        <span className="absolute -top-1.5 -right-1.5 flex min-h-[14px] min-w-[14px] items-center justify-center rounded-full bg-destructive px-1 text-[8px] font-bold text-white">
+                          {badgeCount > 99 ? "99+" : badgeCount}
+                        </span>
+                      )}
+                    </div>
+                    <span>{item.label}</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              );
+            })}
           </SidebarMenu>
         </SidebarGroupContent>
       </SidebarGroup>

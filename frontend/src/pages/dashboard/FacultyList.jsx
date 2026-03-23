@@ -389,17 +389,17 @@ export default function FacultyList() {
           <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label className="text-sm">Full Name *</Label>
-              <Input placeholder="Dr. John Doe" value={formData.name}
+              <Input placeholder="Enter Faculty Name" value={formData.name}
                 onChange={e => setFormData({ ...formData, name: e.target.value })} required className="h-10" />
             </div>
             <div className="space-y-1.5">
               <Label className="text-sm">Email Address *</Label>
-              <Input type="email" placeholder="faculty@institution.edu" value={formData.email}
+              <Input type="email" placeholder="Enter faculty email" value={formData.email}
                 onChange={e => setFormData({ ...formData, email: e.target.value })} required className="h-10" />
             </div>
             <div className="space-y-1.5">
               <Label className="text-sm">Phone Number *</Label>
-              <Input placeholder="1234567890" maxLength={10} value={formData.phone}
+              <Input placeholder="+91" maxLength={10} value={formData.phone}
                 onChange={e => setFormData({ ...formData, phone: e.target.value.replace(/\D/g, '') })} required className="h-10" />
             </div>
             <div className="space-y-1.5">
