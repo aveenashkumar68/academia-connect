@@ -488,17 +488,34 @@ function PostCard({ post, user, getTypeInfo, roleBadgeClass, roleLabel, timeAgo,
                 )}
 
                 {/* Actions */}
-                <div className="mt-4 pt-3 border-t border-border/50 flex flex-wrap gap-2">
-                    <button onClick={() => onLike(post._id)}
-                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition ${post.isLiked ? "bg-primary/10 text-primary" : "bg-muted/50 text-muted-foreground hover:bg-muted"}`}>
-                        <ThumbsUp className={`h-4 w-4 ${post.isLiked ? "fill-primary" : ""}`} />
-                        {post.likeCount || 0}
-                    </button>
-                    {post.contactEmail && (
-                        <a href={`mailto:${post.contactEmail}`}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-muted/50 text-muted-foreground hover:bg-muted transition">
-                            <Mail className="h-4 w-4" /> Contact
-                        </a>
+                <div className="mt-4 pt-3 border-t border-border/50 flex flex-wrap items-center gap-2 justify-between">
+                    <div className="flex flex-wrap gap-2">
+                        <button onClick={() => onLike(post._id)}
+                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition ${post.isLiked ? "bg-primary/10 text-primary" : "bg-muted/50 text-muted-foreground hover:bg-muted"}`}>
+                            <ThumbsUp className={`h-4 w-4 ${post.isLiked ? "fill-primary" : ""}`} />
+                            {post.likeCount || 0}
+                        </button>
+                        {post.contactEmail && (
+                            <a href={`mailto:${post.contactEmail}`}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-muted/50 text-muted-foreground hover:bg-muted transition">
+                                <Mail className="h-4 w-4" /> Contact
+                            </a>
+                        )}
+                    </div>
+                    {user?.role === 'student' && post.postType === 'industry' && (
+                        <button
+                            onClick={async () => {
+                                try {
+                                    await api.post('/connections', { industryId: post.author, message: "Connected via community post" });
+                                    toast.success("Successfully sent connection request!");
+                                } catch (error) {
+                                    toast.error(error.response?.data?.message || "Failed to send connection request");
+                                }
+                            }}
+                            className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition"
+                        >
+                            Accept Connection
+                        </button>
                     )}
                 </div>
             </div>

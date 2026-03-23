@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import api from "@/lib/api";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { GraduationCap, Users, UserSquare2, BookOpen, Trophy } from "lucide-react";
+import { GraduationCap, Users, UserSquare2, BookOpen, Trophy, Mail, Phone, Building2, MapPin } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useNavigate } from "react-router-dom";
 
 export default function StudentDashboard() {
@@ -12,6 +13,7 @@ export default function StudentDashboard() {
   const [assignedFaculty, setAssignedFaculty] = useState([]);
   const [userGroups, setUserGroups] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedFaculty, setSelectedFaculty] = useState(null);
 
   useEffect(() => {
     if (!user?._id) return;
@@ -29,6 +31,7 @@ export default function StudentDashboard() {
         const stDomains = (stProfile.domain || "").split(',').map(d => d.trim()).filter(Boolean);
 
         const assigned = allFaculty.filter(f => {
+          if (stProfile.addedBy && f._id === stProfile.addedBy._id) return true;
           if (f.department !== stProfile.department && !f.department) return false;
           const fDomains = (f.domain || "").split(',').map(d => d.trim()).filter(Boolean);
           if (stDomains.length > 0 && fDomains.length > 0) {
@@ -73,21 +76,26 @@ export default function StudentDashboard() {
     <DashboardLayout title="Dashboard">
       <div className="max-w-[1200px] mx-auto pb-8">
 
-        {/* Header */}
+        {/* Header / Welcome Banner */}
+        {profile?.addedBy && (
+          <div className="bg-white rounded-2xl p-5 md:p-6 mb-6 md:mb-8 shadow-[0_2px_8px_rgba(0,0,0,0.05)] border border-slate-200 flex items-center justify-between animate-in fade-in slide-in-from-bottom-2 duration-500">
+            <div>
+              <h2 className="text-xl font-bold text-slate-800">Welcome, {profile.name || user?.name || "Student"}!</h2>
+              <p className="text-slate-500 mt-2 text-sm md:text-base flex items-center gap-2">
+                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-50 text-blue-600">
+                  <UserSquare2 className="w-3.5 h-3.5" />
+                </span>
+                Added by Faculty: <span className="font-medium text-blue-600">{profile.addedBy.name || profile.addedBy.email}</span>
+              </p>
+            </div>
+            <div className="hidden sm:flex h-12 w-12 rounded-xl bg-blue-50 items-center justify-center text-blue-600 border border-blue-100">
+              <GraduationCap className="h-6 w-6" />
+            </div>
+          </div>
+        )}
 
         {/* Achievements Quick Card → links to full page */}
-        <button
-          onClick={() => navigate("/dashboard/student/achievements")}
-          className="w-full bg-gradient-to-r from-[#1e3c72] to-[#2a5298] rounded-2xl p-5 mb-6 md:mb-8 shadow-md text-white flex items-center gap-4 hover:shadow-lg hover:scale-[1.01] transition-all duration-200 text-left animate-in fade-in slide-in-from-bottom-3 duration-500 delay-75"
-        >
-          <div className="w-12 h-12 rounded-xl bg-white/15 backdrop-blur-sm flex items-center justify-center shrink-0">
-            <Trophy className="w-6 h-6" />
-          </div>
-          <div className="flex-1">
-            <h3 className="font-semibold text-base">My Achievements</h3>
-            <p className="text-white/70 text-sm">View your badges, projects & industry contacts →</p>
-          </div>
-        </button>
+
 
         {/* Two Box Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6 lg:gap-8 mb-8">
@@ -105,7 +113,7 @@ export default function StudentDashboard() {
                 <p className="text-slate-500 text-sm py-4 text-center bg-slate-50 rounded-lg">No faculty assigned to your domain.</p>
               ) : (
                 assignedFaculty.map((faculty, idx) => (
-                  <div key={faculty._id || idx} className="flex items-center justify-between py-3 border-b border-slate-200 last:border-0 hover:bg-slate-50 transition-colors px-2 -mx-2 rounded-lg cursor-pointer">
+                  <div key={faculty._id || idx} onClick={() => setSelectedFaculty(faculty)} className="flex items-center justify-between py-3 border-b border-slate-200 last:border-0 hover:bg-slate-50 transition-colors px-2 -mx-2 rounded-lg cursor-pointer">
                     <div className="flex items-center gap-3">
                       <div className="w-[35px] h-[35px] rounded-full bg-slate-100 flex items-center justify-center text-blue-600 font-semibold text-sm shrink-0 overflow-hidden border border-slate-200">
                         {faculty.profilePicture ? (
@@ -174,6 +182,55 @@ export default function StudentDashboard() {
 
         </div>
       </div>
+
+      <Dialog open={!!selectedFaculty} onOpenChange={(open) => !open && setSelectedFaculty(null)}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Faculty Profile</DialogTitle>
+          </DialogHeader>
+          {selectedFaculty && (
+            <div className="flex flex-col gap-4 py-4">
+              <div className="flex items-center gap-4">
+                <div className="h-16 w-16 rounded-full border border-slate-200 overflow-hidden bg-slate-100 flex items-center justify-center text-xl font-bold text-blue-600 shrink-0">
+                  {selectedFaculty.profilePicture ? (
+                    <img src={selectedFaculty.profilePicture} alt={selectedFaculty.name} className="h-full w-full object-cover" />
+                  ) : (
+                    getInitials(selectedFaculty.name || selectedFaculty.email)
+                  )}
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-800">{selectedFaculty.name || selectedFaculty.email}</h3>
+                  <p className="text-sm text-slate-500 capitalize px-2 py-0.5 bg-slate-100 rounded-full inline-block mt-1">
+                    Faculty Member
+                  </p>
+                </div>
+              </div>
+              <div className="grid gap-3 mt-2">
+                <div className="flex items-center gap-3 text-sm text-slate-600 bg-slate-50 p-3 rounded-lg border border-slate-100">
+                  <Mail className="h-4 w-4 text-slate-400" />
+                  <span>{selectedFaculty.email}</span>
+                </div>
+                {selectedFaculty.phone && (
+                  <div className="flex items-center gap-3 text-sm text-slate-600 bg-slate-50 p-3 rounded-lg border border-slate-100">
+                    <Phone className="h-4 w-4 text-slate-400" />
+                    <span>{selectedFaculty.phone}</span>
+                  </div>
+                )}
+                <div className="flex items-center gap-3 text-sm text-slate-600 bg-slate-50 p-3 rounded-lg border border-slate-100">
+                  <Building2 className="h-4 w-4 text-slate-400" />
+                  <span>{selectedFaculty.department || "General Department"}</span>
+                </div>
+                {selectedFaculty.domain && (
+                  <div className="flex items-start gap-3 text-sm text-slate-600 bg-slate-50 p-3 rounded-lg border border-slate-100">
+                    <MapPin className="h-4 w-4 text-slate-400 shrink-0 mt-0.5" />
+                    <span>{selectedFaculty.domain}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }

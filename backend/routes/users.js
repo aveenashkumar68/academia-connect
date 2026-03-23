@@ -170,8 +170,8 @@ router.get('/stats', protect, authorize('super-admin'), async (req, res) => {
 
 // @route   GET /api/users/role/:role
 // @desc    Get users by role
-// @access  Private / Super-Admin & Admin
-router.get('/role/:role', protect, authorize('super-admin', 'admin'), async (req, res) => {
+// @access  Private / Super-Admin, Admin & Student
+router.get('/role/:role', protect, authorize('super-admin', 'admin', 'student'), async (req, res) => {
     try {
         const users = await User.find({ role: req.params.role }).select('-password');
         res.json(users);
