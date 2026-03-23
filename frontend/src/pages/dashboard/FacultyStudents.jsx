@@ -218,22 +218,35 @@ export default function FacultyStudents() {
 
     const facultyName = user?.name || "Faculty";
 
-    // Auto-select department if faculty
-    useEffect(() => {
-        if (user?.role === 'admin' && user?.department && departments.length > 0) {
-            if (!formData.department) {
-                const dept = departments.find(d => d.name === user.department);
-                setSelectedDept(dept || null);
-                setFormData(prev => ({ ...prev, department: user.department }));
-            }
-        }
-    }, [user, departments, view, formData.department]);
-
     // Allowed domains for faculty
     const allowedDomains = useMemo(() => {
         if (user?.role !== 'admin' || !user?.domain) return null;
         return user.domain.split(',').map(d => d.trim()).filter(Boolean);
     }, [user]);
+
+    // Auto-select department and domain if faculty
+    useEffect(() => {
+        if (user?.role === 'admin' && user?.department && departments.length > 0) {
+            let updates = {};
+            let isUpdate = false;
+
+            if (!formData.department) {
+                updates.department = user.department;
+                const dept = departments.find(d => d.name === user.department);
+                setSelectedDept(dept || null);
+                isUpdate = true;
+            }
+
+            if (formData.domains.length === 0 && allowedDomains && allowedDomains.length > 0) {
+                updates.domains = allowedDomains;
+                isUpdate = true;
+            }
+
+            if (isUpdate) {
+                setFormData(prev => ({ ...prev, ...updates }));
+            }
+        }
+    }, [user, departments, view, formData.department, formData.domains.length, allowedDomains]);
 
     return (
         <DashboardLayout title="Student Management" description="Manage student accounts">
@@ -276,19 +289,19 @@ export default function FacultyStudents() {
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
                                 <div className="flex flex-col gap-2">
                                     <Label className="text-[14px] font-medium text-[#2c456e]">Full name *</Label>
-                                    <Input placeholder="e.g. John Smith" value={formData.name}
+                                    <Input placeholder="Enter student name" value={formData.name}
                                         onChange={e => setFormData({ ...formData, name: e.target.value })}
                                         className="h-11 rounded-2xl border-[#dae2ed] bg-[#fafcff] focus:border-[#1d4ed8]" required />
                                 </div>
                                 <div className="flex flex-col gap-2">
                                     <Label className="text-[14px] font-medium text-[#2c456e]">Email *</Label>
-                                    <Input type="email" placeholder="john@university.edu" value={formData.email}
+                                    <Input type="email" placeholder="Enter student email" value={formData.email}
                                         onChange={e => setFormData({ ...formData, email: e.target.value })}
                                         className="h-11 rounded-2xl border-[#dae2ed] bg-[#fafcff]" required />
                                 </div>
                                 <div className="flex flex-col gap-2">
-                                    <Label className="text-[14px] font-medium text-[#2c456e]">Phone</Label>
-                                    <Input placeholder="1234567890" maxLength={10} value={formData.phone}
+                                    <Label className="text-[14px] font-medium text-[#2c456e]">Phone*</Label>
+                                    <Input placeholder="+91" maxLength={10} value={formData.phone}
                                         onChange={e => setFormData({ ...formData, phone: e.target.value.replace(/\D/g, '') })}
                                         className="h-11 rounded-2xl border-[#dae2ed] bg-[#fafcff]" />
                                 </div>
@@ -307,13 +320,21 @@ export default function FacultyStudents() {
                                 </div>
                                 <div className="flex flex-col gap-2">
                                     <Label className="text-[14px] font-medium text-[#2c456e]">Year</Label>
-                                    <Input placeholder="2nd Year" value={formData.year}
+
+                                    <select
+                                        value={formData.year || "3rd"}
                                         onChange={e => setFormData({ ...formData, year: e.target.value })}
-                                        className="h-11 rounded-2xl border-[#dae2ed] bg-[#fafcff]" />
+                                        className="h-11 rounded-2xl border border-[#dae2ed] bg-[#fafcff] px-3 text-sm"
+                                    >
+                                        <option value="1st">1st Year</option>
+                                        <option value="2nd">2nd Year</option>
+                                        <option value="3rd">3rd Year</option>
+                                        <option value="4th">4th Year</option>
+                                    </select>
                                 </div>
                                 <div className="flex flex-col gap-2">
-                                    <Label className="text-[14px] font-medium text-[#2c456e]">Registration # *</Label>
-                                    <Input placeholder="REG-2025-001" value={formData.regNo}
+                                    <Label className="text-[14px] font-medium text-[#2c456e]">Registration Number *</Label>
+                                    <Input placeholder="Enter registration number" value={formData.regNo}
                                         onChange={e => setFormData({ ...formData, regNo: e.target.value })}
                                         className="h-11 rounded-2xl border-[#dae2ed] bg-[#fafcff]" required />
                                 </div>
@@ -327,10 +348,11 @@ export default function FacultyStudents() {
                                         const isAllowed = !allowedDomains || allowedDomains.includes(domain);
                                         if (!isAllowed) return null; // hide domains faculty isn't part of
                                         return (
-                                            <label key={domain} className="flex items-center gap-2 cursor-pointer text-[#1f3b66] font-medium text-sm sm:text-base">
+                                            <label key={domain} className={`flex items-center gap-2 text-[#1f3b66] font-medium text-sm sm:text-base ${user?.role === 'admin' ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'}`}>
                                                 <Checkbox
                                                     checked={formData.domains.includes(domain)}
-                                                    onCheckedChange={() => toggleDomain(domain)}
+                                                    onCheckedChange={() => user?.role !== 'admin' && toggleDomain(domain)}
+                                                    disabled={user?.role === 'admin'}
                                                     className="w-5 h-5 rounded data-[state=checked]:bg-[#1d4ed8] data-[state=checked]:border-[#1d4ed8]"
                                                 />
                                                 {domain}

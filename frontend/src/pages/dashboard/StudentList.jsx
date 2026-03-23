@@ -5,12 +5,16 @@ import api from "@/lib/api";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { GraduationCap, Mail, Phone, Building2, Calendar, Globe } from "lucide-react";
+import { GraduationCap, Mail, Phone, Building2, Calendar, Globe, Search, Filter } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function StudentList() {
   const navigate = useNavigate();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedDepartment, setSelectedDepartment] = useState("all");
 
   const { data: students = [], isLoading: loading, isError } = useQuery({
     queryKey: ['students'],
@@ -24,12 +28,54 @@ export default function StudentList() {
     toast.error("Failed to fetch student list");
   }
 
+  const departments = [...new Set(students.map(s => s.department).filter(Boolean))];
+
+  const filteredStudents = students.filter(student => {
+    const searchString = searchTerm.toLowerCase();
+    const matchesSearch = 
+      (student.name && student.name.toLowerCase().includes(searchString)) || 
+      (student.email && student.email.toLowerCase().includes(searchString)) ||
+      (student.regNo && student.regNo.toLowerCase().includes(searchString));
+    
+    const matchesDepartment = selectedDepartment === "all" || student.department === selectedDepartment;
+    
+    return matchesSearch && matchesDepartment;
+  });
+
   return (
     <DashboardLayout>
       <div className="space-y-4 sm:space-y-6">
         <div>
           <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight text-foreground">Student Management</h2>
           <p className="text-sm text-muted-foreground">View and manage student profiles</p>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-4 mb-6">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by name, email, or registration no..."
+              className="pl-9 bg-card"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
+            <SelectTrigger className="w-full sm:w-[240px] bg-card">
+              <div className="flex items-center gap-2">
+                <Filter className="h-4 w-4 text-muted-foreground" />
+                <SelectValue placeholder="All Departments" />
+              </div>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Departments</SelectItem>
+              {departments.map((dept) => (
+                <SelectItem key={dept} value={dept}>
+                  {dept}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {loading ? (
@@ -47,7 +93,7 @@ export default function StudentList() {
                   <GraduationCap className="h-5 w-5 text-primary" />
                 </div>
                 <CardTitle className="text-xl font-bold">Student Directory</CardTitle>
-                <span className="ml-auto text-sm text-muted-foreground">{students.length} students</span>
+                <span className="ml-auto text-sm text-muted-foreground">{filteredStudents.length} students</span>
               </CardHeader>
               <CardContent className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -61,7 +107,13 @@ export default function StudentList() {
                     </tr>
                   </thead>
                   <tbody>
-                    {students.map((s) => (
+                    {filteredStudents.length === 0 ? (
+                      <tr>
+                        <td colSpan="5" className="text-center py-8 text-muted-foreground border-b border-border/50">
+                          No students match your filters.
+                        </td>
+                      </tr>
+                    ) : filteredStudents.map((s) => (
                       <tr
                         key={s._id}
                         className="border-b border-border/50 cursor-pointer hover:bg-muted/50 transition-colors"
@@ -103,9 +155,13 @@ export default function StudentList() {
                   <GraduationCap className="h-5 w-5 text-primary" />
                 </div>
                 <h3 className="font-bold text-lg">Student Directory</h3>
-                <span className="ml-auto text-xs text-muted-foreground">{students.length} students</span>
+                <span className="ml-auto text-xs text-muted-foreground">{filteredStudents.length} students</span>
               </div>
-              {students.map((s) => (
+              {filteredStudents.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground border rounded-xl border-border/50 bg-card">
+                  No students match your filters.
+                </div>
+              ) : filteredStudents.map((s) => (
                 <div
                   key={s._id}
                   className="rounded-xl border border-border/50 bg-card p-4 shadow-sm hover:shadow-md transition-all cursor-pointer active:scale-[0.98]"

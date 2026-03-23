@@ -43,7 +43,7 @@ router.post('/admin', protect, authorize('super-admin'), async (req, res) => {
 
         if (user) {
             // Await email sending to guarantee delivery on serverless
-            await sendCredentialsEmail(email, 'Admin', email, unhashedPassword);
+            await sendCredentialsEmail(email, 'Admin', email, unhashedPassword, department, domain, name);
 
             // Auto-create notification
             await Notification.create({
@@ -99,7 +99,7 @@ router.post('/student', protect, authorize('admin'), async (req, res) => {
 
         if (user) {
             // Await email sending to guarantee delivery on serverless
-            await sendCredentialsEmail(email, 'Student', email, unhashedPassword);
+            await sendCredentialsEmail(email, 'Student', email, unhashedPassword, department, domain, name);
 
             // Auto-create notification
             const creator = await User.findById(req.user.id).select('name');
@@ -470,7 +470,7 @@ router.post('/admin/:id/replace', protect, authorize('super-admin'), async (req,
         });
 
         if (newUser) {
-            await sendCredentialsEmail(email, 'Admin', email, unhashedPassword);
+            await sendCredentialsEmail(email, 'Admin', email, unhashedPassword, department, domain, name);
 
             await Notification.create({
                 type: 'user_created',
@@ -548,7 +548,7 @@ router.post('/student/:id/replace', protect, authorize('super-admin', 'admin'), 
         });
 
         if (newUser) {
-            await sendCredentialsEmail(email, 'Student', email, unhashedPassword);
+            await sendCredentialsEmail(email, 'Student', email, unhashedPassword, department, domain, name);
 
             const creator = await User.findById(req.user.id).select('name role');
             await Notification.create({

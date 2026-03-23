@@ -5,6 +5,22 @@ import User from '../models/User.js';
 
 const router = express.Router();
 
+// @route   GET /api/chat/unread-count
+// @desc    Get total unread messages count for current user
+// @access  Private
+router.get('/unread-count', protect, async (req, res) => {
+    try {
+        const count = await Message.countDocuments({
+            receiver: req.user.id,
+            read: false,
+        });
+        res.json({ count });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
 // @route   GET /api/chat/users
 // @desc    Get all users (for contact list, excluding current user)
 // @access  Private

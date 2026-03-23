@@ -4,6 +4,39 @@ import { protect } from '../middleware/auth.js';
 
 const router = express.Router();
 
+// @route   GET /api/notifications/community-unread
+// @desc    Get unread community post count for current user
+// @access  Private
+router.get('/community-unread', protect, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const count = await Notification.countDocuments({
+            type: 'post_created',
+            readBy: { $ne: userId }
+        });
+        res.json({ count });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   PUT /api/notifications/mark-community-read
+// @desc    Mark all community notifications as read for current user
+// @access  Private
+router.put('/mark-community-read', protect, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        await Notification.updateMany(
+            { type: 'post_created', readBy: { $ne: userId } },
+            { $addToSet: { readBy: userId } }
+        );
+        res.json({ message: 'Community marked as read' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
 // @route   GET /api/notifications
 // @desc    Get last 50 notifications (for dropdown)
 // @access  Private
