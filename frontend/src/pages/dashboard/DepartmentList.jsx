@@ -1,4 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import Skeleton from "react-loading-skeleton";
 import api from "@/lib/api";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,9 +17,8 @@ import { useAuth } from "@/hooks/useAuth";
 
 export default function DepartmentList() {
   const { role } = useAuth();
+  const queryClient = useQueryClient();
   const isSuperAdmin = role === 'super-admin';
-  const [departments, setDepartments] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [selectedDept, setSelectedDept] = useState(null);
   const [selectedDomain, setSelectedDomain] = useState(null);
   const [students, setStudents] = useState([]);
@@ -31,20 +32,17 @@ export default function DepartmentList() {
   const [deptDomains, setDeptDomains] = useState([]);
   const [newDomain, setNewDomain] = useState("");
 
-  const fetchDepartments = async () => {
-    try {
+  const { data: departments = [], isLoading: loading, isError } = useQuery({
+    queryKey: ['departments'],
+    queryFn: async () => {
       const response = await api.get("/departments");
-      setDepartments(response.data);
-    } catch (error) {
-      toast.error("Failed to fetch department list");
-    } finally {
-      setLoading(false);
+      return response.data;
     }
-  };
+  });
 
-  useEffect(() => {
-    fetchDepartments();
-  }, []);
+  if (isError) {
+    toast.error("Failed to fetch department list");
+  }
 
   const handleDomainClick = async (domain) => {
     setSelectedDomain(domain);
@@ -108,7 +106,7 @@ export default function DepartmentList() {
         toast.success("Department created successfully");
       }
       setIsDeptDialogOpen(false);
-      fetchDepartments();
+      queryClient.invalidateQueries({ queryKey: ['departments'] });
     } catch (error) {
       toast.error(error.response?.data?.message || "Failed to save department");
     }
@@ -120,7 +118,7 @@ export default function DepartmentList() {
       try {
         await api.delete(`/departments/${id}`);
         toast.success("Department deleted successfully");
-        fetchDepartments();
+        queryClient.invalidateQueries({ queryKey: ['departments'] });
       } catch (error) {
         toast.error("Failed to delete department");
       }
@@ -131,7 +129,15 @@ export default function DepartmentList() {
     return name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || '?';
   };
 
-  if (loading) return <DashboardLayout><div className="text-center py-20">Loading...</div></DashboardLayout>;
+  if (loading) return (
+    <DashboardLayout>
+      <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 pt-10">
+        {[...Array(8)].map((_, i) => (
+          <Skeleton key={i} height={100} className="w-full rounded-xl" />
+        ))}
+      </div>
+    </DashboardLayout>
+  );
 
   return <DashboardLayout>
     <div className="space-y-6">

@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { FiArrowRight, FiMap, FiUsers, FiBriefcase, FiBookOpen } from 'react-icons/fi';
+
 import { useNavigate } from 'react-router-dom';
 import Navbar from "@/components/common/Navbar";
 
@@ -54,16 +54,16 @@ function LandingPage() {
 
     // Impact section data with icons
     const impactItems = [
-        { icon: <FiUsers size={24} />, title: 'Students', description: 'Discover careers and startup ideas inside your own branch.' },
-        { icon: <FiBriefcase size={24} />, title: 'Startups', description: 'Find underserved domains & technical gaps.' },
-        { icon: <FiMap size={24} />, title: 'Industries', description: 'Source talent with specific domain alignment.' },
-        { icon: <FiBookOpen size={24} />, title: 'Researchers', description: 'Identify applied research opportunities.' }
+        { icon: 'fa-users', title: 'Students', description: 'Discover careers and startup ideas inside your own branch.' },
+        { icon: 'fa-briefcase', title: 'Startups', description: 'Find underserved domains & technical gaps.' },
+        { icon: 'fa-map', title: 'Industries', description: 'Source talent with specific domain alignment.' },
+        { icon: 'fa-book-open', title: 'Researchers', description: 'Identify applied research opportunities.' }
     ];
 
     return (
         <div className="landing-page">
             <Navbar />
-            {/* Hero Section - Updated with grey background */}
+            {/* Hero Section */}
             <section className="hero hero-grey" id="home">
                 <div className="hero-bg">
                     <div className="hero-bg-blob hero-blob-1"></div>
@@ -77,54 +77,43 @@ function LandingPage() {
                         transition={{ duration: 0.8 }}
                     >
                         <h1 className="hero-title">
-                            Project <span className="hero-title-span">Mayaa</span>
+                            Project{' '}
+                            <span className="hero-title-span">
+                                Mayaa
+                                <span className="hero-title-underline"></span>
+                            </span>
                         </h1>
                         <p className="hero-subtitle">
-                            140 business domains | 18 engineering departments
+                            140 business domains | 18 Engineering and Business Disciplines
                         </p>
                         <p className="hero-description">
-                            Bridging technical depth with market opportunities — a clear map from engineering to industry.
+                            Bridging technical depth with market opportunities — A clear roadmap connecting institutions with industry collaboration.
                         </p>
                         <div className="hero-buttons">
-                            <motion.a
-                                href="#departments"
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                                className="btn btn-primary btn-large"
-                                onClick={(e) => {
-                                    e.preventDefault();
-                                    const element = document.getElementById("departments");
-                                    if (element) {
-                                        element.scrollIntoView({
-                                            behavior: "smooth",
-                                            block: "start",
-                                        });
-                                    }
+                            <motion.button
+                                whileHover={{ scale: 1.03 }}
+                                whileTap={{ scale: 0.97 }}
+                                className="hero-btn-primary"
+                                onClick={() => {
+                                    const element = document.getElementById('departments');
+                                    if (element) element.scrollIntoView({ behavior: 'smooth', block: 'start' });
                                 }}
                             >
                                 Explore domains
-                            </motion.a>
+                            </motion.button>
 
-                            <motion.a
-                                href="#departments"
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                                className="btn btn-outline btn-large"
-                                onClick={(e) => {
-                                    e.preventDefault();
-                                    const element = document.getElementById("departments");
-                                    if (element) {
-                                        element.scrollIntoView({
-                                            behavior: "smooth",
-                                            block: "start",
-                                        });
-                                    }
+                            <motion.button
+                                whileHover={{ scale: 1.03 }}
+                                whileTap={{ scale: 0.97 }}
+                                className="hero-btn-outline"
+                                onClick={() => {
+                                    const element = document.getElementById('departments');
+                                    if (element) element.scrollIntoView({ behavior: 'smooth', block: 'start' });
                                 }}
                             >
                                 Departments
-                            </motion.a>
+                            </motion.button>
                         </div>
-
                     </motion.div>
                 </div>
             </section>
@@ -141,7 +130,7 @@ function LandingPage() {
                     >
                         <h2 className="about-title">Mapping the unseen</h2>
                         <p className="about-subtitle">
-                            Project Mayaa systematically connects every engineering discipline with real‑world business domains.
+                            Project Mayaa systematically connects every engineering and business disciplines with real‑world business domains.
                         </p>
                     </motion.div>
 
@@ -256,7 +245,7 @@ function LandingPage() {
                                 className="impact-card"
                             >
                                 <div className="impact-icon" style={{ color: 'hsl(var(--accent))' }}>
-                                    {item.icon}
+                                    <i className={`fas ${item.icon} fa-2x`}></i>
                                 </div>
                                 <h3 className="impact-card-title">{item.title}</h3>
                                 <p className="impact-card-text">{item.description}</p>
@@ -322,7 +311,7 @@ function LandingPage() {
                             <ul className="contact-info">
                                 <li>
                                     <i className="fas fa-envelope contact-icon"></i>
-                                    <a href="mailto:hello@projectmayaa.com" className="contact-link">hello@projectmayaa.com</a>
+                                    <a href="mailto:projectmayaaexcelcolleges@gmail.com" className="contact-link">projectmayaaexcelcolleges@gmail.com</a>
                                 </li>
                                 <li>
                                     <i className="fas fa-phone contact-icon"></i>
@@ -330,7 +319,8 @@ function LandingPage() {
                                 </li>
                                 <li>
                                     <i className="fas fa-map-marker-alt contact-icon"></i>
-                                    <span className="contact-text">San Francisco, CA</span>
+                                    <span className="contact-text">NH-544, Salem Main Road, Sankari West, Pallakkapalayam, Pin:637 303.
+                                    Komarapalayam Namakkal Dt. Tamilnadu.</span>
                                 </li>
                             </ul>
                         </div>

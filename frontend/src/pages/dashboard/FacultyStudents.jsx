@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import Skeleton from "react-loading-skeleton";
 import { useSearchParams } from "react-router-dom";
 import api from "@/lib/api";
 import { useNavigate } from "react-router-dom";
@@ -36,15 +38,11 @@ export default function FacultyStudents() {
     }, [viewParam]);
 
     const [creating, setCreating] = useState(false);
-    const [departments, setDepartments] = useState([]);
     const [selectedDept, setSelectedDept] = useState(null);
-    const [allUsers, setAllUsers] = useState([]);
-    const [myStudents, setMyStudents] = useState([]);
     const [searchQuery, setSearchQuery] = useState("");
     const [deptFilter, setDeptFilter] = useState("all");
     const [currentPage, setCurrentPage] = useState(1);
 
-    // Updated formData and replaceForm to have domains as an array
     const [formData, setFormData] = useState({
         name: "", email: "", phone: "", department: "", year: "", regNo: "", domains: []
     });
@@ -62,42 +60,17 @@ export default function FacultyStudents() {
         setTimeout(() => setMessage(null), 3500);
     }, []);
 
-    const fetchDepartments = async () => {
-        try {
-            const response = await api.get("/departments");
-            setDepartments(response.data);
-        } catch (error) {
-            console.error("Failed to fetch departments");
-        }
-    };
+    const queryClient = useQueryClient();
 
-    const fetchUsers = async () => {
-        try {
-            const { data } = await api.get("/chat/users");
-            setAllUsers(data);
-        } catch {
-            toast.error("Failed to fetch users");
-        }
-    };
+    const { data: departments = [] } = useQuery({ queryKey: ['departments'], queryFn: async () => (await api.get("/departments")).data });
+    const { data: allUsers = [], refetch: fetchUsers, isLoading: usersLoading } = useQuery({ queryKey: ['allUsers'], queryFn: async () => (await api.get("/chat/users")).data });
+    const { data: myStudents = [], refetch: fetchMyStudents, isLoading: myStudentsLoading } = useQuery({
+        queryKey: ['my-students', user?._id],
+        queryFn: async () => (await api.get(`/users/${user._id}/students`)).data,
+        enabled: !!user?._id
+    });
 
-    const fetchMyStudents = useCallback(async () => {
-        if (!user?._id) return;
-        try {
-            const { data } = await api.get(`/users/${user._id}/students`);
-            setMyStudents(data);
-        } catch (error) {
-            console.error("Failed to fetch my students", error);
-        }
-    }, [user]);
-
-    useEffect(() => {
-        fetchDepartments();
-        fetchUsers();
-    }, []);
-
-    useEffect(() => {
-        fetchMyStudents();
-    }, [fetchMyStudents]);
+    const loading = usersLoading || myStudentsLoading;
 
     const students = useMemo(() => allUsers.filter(u => u.role === "student"), [allUsers]);
 
@@ -453,7 +426,11 @@ export default function FacultyStudents() {
 
                             {/* Mobile Layout */}
                             <div className="md:hidden space-y-3">
-                                {paginatedStudents.length === 0 ? (
+                                {loading ? (
+                                    <div className="space-y-4">
+                                        <Skeleton height={150} className="w-full rounded-2xl" count={3} />
+                                    </div>
+                                ) : paginatedStudents.length === 0 ? (
                                     <div className="text-center py-10 text-[#6b7c9e]">No students found</div>
                                 ) : paginatedStudents.map((s) => (
                                     <div key={s._id} className="bg-[#fafcff] border border-[#e6edf6] rounded-2xl p-4 space-y-2.5">
@@ -526,7 +503,9 @@ export default function FacultyStudents() {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {paginatedStudents.length === 0 ? (
+                                        {loading ? (
+                                            <tr><td colSpan={7} className="py-10"><Skeleton height={50} count={5} /></td></tr>
+                                        ) : paginatedStudents.length === 0 ? (
                                             <tr><td colSpan={7} className="text-center py-10 text-[#6b7c9e]">No students found</td></tr>
                                         ) : paginatedStudents.map((s) => (
                                             <tr key={s._id} className="border-b border-[#e0eaf5] hover:bg-[#f8fbff] transition-colors">

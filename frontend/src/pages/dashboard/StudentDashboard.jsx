@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { useQuery } from "@tanstack/react-query";
+import Skeleton from "react-loading-skeleton";
 import api from "@/lib/api";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { GraduationCap, Users, UserSquare2, BookOpen, Trophy, Mail, Phone, Building2, MapPin } from "lucide-react";
@@ -53,8 +54,18 @@ export default function StudentDashboard() {
       } finally {
         setLoading(false);
       }
-    })();
-  }, [user]);
+      return f.department === profile.department;
+    });
+  })();
+
+  const userGroups = (() => {
+    return groupsRes.map(g => ({
+      _id: g._id,
+      name: g.name,
+      members: g.members?.length || 0,
+      role: g.creator?._id === user?._id ? "Creator" : "Member",
+    }));
+  })();
 
   const getInitials = (name) => {
     if (!name) return "U";
@@ -67,7 +78,13 @@ export default function StudentDashboard() {
   if (loading) {
     return (
       <DashboardLayout title="Dashboard">
-        <div className="flex items-center justify-center py-20">Loading dashboard...</div>
+        <div className="max-w-[1200px] mx-auto pb-8 pt-5 text-center">
+            <Skeleton height={200} className="w-full rounded-2xl mb-8" />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6 lg:gap-8 mb-8">
+                <Skeleton height={300} className="w-full rounded-2xl" />
+                <Skeleton height={300} className="w-full rounded-2xl" />
+            </div>
+        </div>
       </DashboardLayout>
     );
   }
