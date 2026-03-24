@@ -50,6 +50,8 @@ export const sendCredentialsEmail = async (to, role, email, password, department
                 `Email:      ${email}`,
                 `Password:   ${password}`,
                 '',
+                'Project Live Link: https://academia-connect-three.vercel.app/',
+                '',
                 'For security purposes, we strongly recommend that you keep these credentials confidential and avoid sharing them with unauthorized individuals. If this is your first time logging in, please consider updating your password after accessing the system.',
                 '',
                 'In case you encounter any issues while accessing the platform or require any assistance, please contact our support team (projectmayaaexcelcolleges@gmail.com).',
@@ -84,6 +86,7 @@ export const sendCredentialsEmail = async (to, role, email, password, department
                             <td style="padding: 8px 16px; background: #f8fafc;">${password}</td>
                         </tr>
                     </table>
+                    <p style="margin: 16px 0;"><strong>Project Live Link:</strong> <a href="https://academia-connect-three.vercel.app/" style="font-weight: bold; color: #2563eb; text-decoration: none;">https://academia-connect-three.vercel.app/</a></p>
                     <p>For security purposes, we strongly recommend that you keep these credentials confidential and avoid sharing them with unauthorized individuals. If this is your first time logging in, please consider updating your password after accessing the system.</p>
                     <p>In case you encounter any issues while accessing the platform or require any assistance, please contact our support team (<a href="mailto:projectmayaaexcelcolleges@gmail.com" style="color: #2563eb; text-decoration: none;">projectmayaaexcelcolleges@gmail.com</a>).</p>
                     <p>Warm regards,<br>Team Project Mayaa</p>
