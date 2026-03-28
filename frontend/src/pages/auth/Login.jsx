@@ -5,6 +5,7 @@ import api from "@/lib/api";
 import { toast } from "sonner";
 
 export default function Login() {
+  const navigate = useNavigate();
   const location = useLocation();
   const { login } = useAuth();
   const [loading, setLoading] = useState(false);
