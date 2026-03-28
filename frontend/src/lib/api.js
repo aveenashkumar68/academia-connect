@@ -23,4 +23,17 @@ api.interceptors.request.use(config => {
 }, error => {
   return Promise.reject(error);
 });
+
+// Add a response interceptor to handle global errors (like 401)
+api.interceptors.response.use(response => {
+  return response;
+}, error => {
+  if (error.response && error.response.status === 401) {
+    // Session invalidated or logged in from another device
+    localStorage.removeItem('user');
+    window.location.href = '/login?reason=session_expired';
+  }
+  return Promise.reject(error);
+});
+
 export default api;
