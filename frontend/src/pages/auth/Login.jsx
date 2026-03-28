@@ -1,16 +1,27 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import api from "@/lib/api";
 import { toast } from "sonner";
 
 export default function Login() {
-  const navigate = useNavigate();
+  const location = useLocation();
   const { login } = useAuth();
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get("reason") === "session_expired") {
+      toast.error("Session expired or logged in from another device. Please login again.", {
+        id: "session-expired-toast" // Prevent duplicate toasts
+      });
+      // Clean URL after showing toast
+      navigate("/login", { replace: true });
+    }
+  }, [location, navigate]);
 
   const handleLogin = async e => {
     e.preventDefault();
