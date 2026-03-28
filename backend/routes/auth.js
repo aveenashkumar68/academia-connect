@@ -9,8 +9,8 @@ import upload from '../middleware/upload.js';
 const router = express.Router();
 
 // Generate Token
-const generateToken = (id, role) => {
-    return jwt.sign({ id, role }, process.env.JWT_SECRET, {
+const generateToken = (id, role, tokenVersion) => {
+    return jwt.sign({ id, role, tokenVersion }, process.env.JWT_SECRET, {
         expiresIn: '30d',
     });
 };
@@ -25,6 +25,10 @@ router.post('/login', async (req, res) => {
         const user = await User.findOne({ email });
 
         if (user && (await bcrypt.compare(password, user.password))) {
+            // Increment token version to invalidate previous sessions
+            user.tokenVersion = (user.tokenVersion || 0) + 1;
+            await user.save();
+
             res.json({
                 _id: user._id,
                 email: user.email,
@@ -33,7 +37,7 @@ router.post('/login', async (req, res) => {
                 department: user.department,
                 domain: user.domain,
                 profilePicture: user.profilePicture,
-                token: generateToken(user._id, user.role),
+                token: generateToken(user._id, user.role, user.tokenVersion),
             });
         } else {
             res.status(401).json({ message: 'Invalid email or password' });
@@ -65,6 +69,9 @@ router.post('/change-password', protect, async (req, res) => {
         // Hash new password
         const salt = await bcrypt.genSalt(10);
         user.password = await bcrypt.hash(newPassword, salt);
+        
+        // Invalidate all existing sessions on password change
+        user.tokenVersion = (user.tokenVersion || 0) + 1;
 
         await user.save();
 
@@ -116,6 +123,9 @@ router.put('/password', protect, async (req, res) => {
 
         const salt = await bcrypt.genSalt(10);
         user.password = await bcrypt.hash(newPassword, salt);
+        
+        // Invalidate all existing sessions on password change
+        user.tokenVersion = (user.tokenVersion || 0) + 1;
         await user.save();
 
         res.json({ message: 'Password updated successfully' });
@@ -164,6 +174,23 @@ router.post('/avatar', protect, upload.single('avatar'), async (req, res) => {
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Failed to upload image' });
+    }
+});
+
+// @route   POST /api/auth/logout
+// @desc    Logout user & invalidate session
+// @access  Private
+router.post('/logout', protect, async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id);
+        if (user) {
+            user.tokenVersion = (user.tokenVersion || 0) + 1;
+            await user.save();
+        }
+        res.json({ message: 'Logged out successfully' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error' });
     }
 });
 

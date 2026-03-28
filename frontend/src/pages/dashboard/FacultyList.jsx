@@ -243,7 +243,7 @@ export default function FacultyList() {
               filteredFaculty.map((f) => (
                 <div key={f._id} className="bg-white border border-border/50 rounded-xl p-4 space-y-3">
                   {/* Top: Avatar + Name */}
-                  <div 
+                  <div
                     className="flex items-center gap-3 cursor-pointer group"
                     onClick={() => navigate(`/dashboard/admin/user/${f._id}`)}
                   >
@@ -322,7 +322,7 @@ export default function FacultyList() {
                   filteredFaculty.map((f) => (
                     <TableRow key={f._id} className="hover:bg-slate-50/80 transition-colors">
                       <TableCell>
-                        <div 
+                        <div
                           className="flex items-center gap-3 cursor-pointer group"
                           onClick={() => navigate(`/dashboard/admin/user/${f._id}`)}
                         >

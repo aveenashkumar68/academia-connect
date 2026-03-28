@@ -47,7 +47,7 @@ export default function DepartmentList() {
   const handleDomainClick = async (domain) => {
     setSelectedDomain(domain);
     try {
-      const response = await api.get(`/users/domain/${encodeURIComponent(domain)}`);
+      const response = await api.get(`/users/domain/${encodeURIComponent(domain)}?dept=${encodeURIComponent(selectedDept.name)}`);
       setStudents(response.data.students || []);
       setFaculty(response.data.faculty || []);
     } catch (error) {

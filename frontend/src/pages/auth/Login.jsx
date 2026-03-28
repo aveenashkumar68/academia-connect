@@ -105,7 +105,7 @@ export default function Login() {
 
             {/* Forgot password */}
             <div className="login-helper-row">
-              <button type="button" className="login-helper-link">Forgot password?</button>
+              <button type="button" className="login-helper-link">Need help?</button>
             </div>
 
             {/* Submit */}
