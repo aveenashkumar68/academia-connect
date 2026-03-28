@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken';
+import User from '../models/User.js';
 
 export const protect = async (req, res, next) => {
     let token;
@@ -7,7 +8,19 @@ export const protect = async (req, res, next) => {
         try {
             token = req.headers.authorization.split(' ')[1];
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
-            req.user = decoded; // { id, role }
+            
+            // Check if user still exists and if token version matches
+            const user = await User.findById(decoded.id);
+            
+            if (!user) {
+                return res.status(401).json({ message: 'User no longer exists' });
+            }
+
+            if (user.tokenVersion !== decoded.tokenVersion) {
+                return res.status(401).json({ message: 'Session expired, please login again' });
+            }
+
+            req.user = decoded; // { id, role, tokenVersion }
             return next();
         } catch (error) {
             console.error(error);

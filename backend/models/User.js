@@ -26,6 +26,7 @@ const userSchema = new mongoose.Schema({
   address: { type: String },
   profilePicture: { type: String }, // Cloudinary URL
   addedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // Track who created this user
+  tokenVersion: { type: Number, default: 0 }, // Track active session state
 }, { timestamps: true });
 
 export default mongoose.model('User', userSchema);

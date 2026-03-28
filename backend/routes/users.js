@@ -14,12 +14,34 @@ const generateRandomPassword = () => {
     return crypto.randomBytes(8).toString('hex');
 };
 
+// Helper to validate department and domain
+const validateDeptDomain = async (departmentName, domainName) => {
+    if (!departmentName) return { valid: false, message: 'Department is required' };
+    
+    const dept = await Department.findOne({ name: departmentName });
+    if (!dept) {
+        return { valid: false, message: `Department '${departmentName}' does not exist` };
+    }
+    
+    if (domainName && !dept.domains.includes(domainName)) {
+        return { valid: false, message: `Domain '${domainName}' is not valid for department '${departmentName}'` };
+    }
+    
+    return { valid: true };
+};
+
 // @route   POST /api/users/admin
 // @desc    Create an admin user
 // @access  Private / Super-Admin
 router.post('/admin', protect, authorize('super-admin'), async (req, res) => {
     try {
         const { email, name, department, phone, domain } = req.body;
+
+        // Validate department/domain
+        const validation = await validateDeptDomain(department, domain);
+        if (!validation.valid) {
+            return res.status(400).json({ message: validation.message });
+        }
 
         const userExists = await User.findOne({ email });
         if (userExists) {
@@ -74,6 +96,12 @@ router.post('/admin', protect, authorize('super-admin'), async (req, res) => {
 router.post('/student', protect, authorize('admin'), async (req, res) => {
     try {
         const { email, name, phone, department, year, regNo, domain } = req.body;
+
+        // Validate department/domain
+        const validation = await validateDeptDomain(department, domain);
+        if (!validation.valid) {
+            return res.status(400).json({ message: validation.message });
+        }
 
         const userExists = await User.findOne({ email });
         if (userExists) {
@@ -209,6 +237,12 @@ router.get('/:id/faculty', protect, authorize('super-admin', 'admin'), async (re
         }
 
         const query = { role: 'admin' };
+        
+        // Always scope by student's department to prevent cross-dept matches
+        if (student.department) {
+            query.department = student.department;
+        }
+
         if (student.domain) {
             const domains = student.domain.split(',').map(d => d.trim()).filter(Boolean);
             if (domains.length > 0) {
@@ -217,8 +251,6 @@ router.get('/:id/faculty', protect, authorize('super-admin', 'admin'), async (re
             } else {
                 query.domain = student.domain;
             }
-        } else if (student.department) {
-            query.department = student.department;
         }
 
         const faculty = await User.find(query).select('-password').sort({ name: 1 });
@@ -240,6 +272,12 @@ router.get('/:id/students', protect, authorize('super-admin', 'admin'), async (r
         }
 
         const query = { role: 'student' };
+
+        // Always scope by faculty's department to prevent cross-dept matches
+        if (faculty.department) {
+            query.department = faculty.department;
+        }
+
         // Match students by domain if faculty has one
         if (faculty.domain) {
             const domains = faculty.domain.split(',').map(d => d.trim()).filter(Boolean);
@@ -251,8 +289,6 @@ router.get('/:id/students', protect, authorize('super-admin', 'admin'), async (r
                 // Fallback to strict match if parsing fails
                 query.domain = faculty.domain;
             }
-        } else if (faculty.department) {
-            query.department = faculty.department;
         }
 
         const students = await User.find(query).select('-password').sort({ name: 1 });
@@ -303,17 +339,23 @@ router.get('/departments/all', protect, authorize('super-admin'), async (req, re
 router.get('/domain/:domain', protect, authorize('super-admin'), async (req, res) => {
     try {
         const domain = req.params.domain;
+        const { dept } = req.query;
+
+        const query = { domain };
+        if (dept) {
+            query.department = dept;
+        }
 
         // Students assigned to this domain
         const students = await User.find({
             role: 'student',
-            domain: domain
+            ...query
         }).select('-password');
 
         // Faculty assigned to this domain
         const faculty = await User.find({
             role: 'admin',
-            domain: domain
+            ...query
         }).select('-password');
 
         res.json({ students, faculty });
@@ -418,6 +460,14 @@ router.put('/:id', protect, authorize('super-admin', 'admin'), async (req, res) 
 
         const { name, email, phone, year, regNo, department, domain } = req.body;
 
+        // If department or domain is updated, ensure they are valid together
+        if (department || domain) {
+            const validation = await validateDeptDomain(department || user.department, domain || user.domain);
+            if (!validation.valid) {
+                return res.status(400).json({ message: validation.message });
+            }
+        }
+
         if (name) user.name = name;
         if (email) user.email = email;
         if (phone) user.phone = phone;
@@ -445,6 +495,12 @@ router.post('/admin/:id/replace', protect, authorize('super-admin'), async (req,
         }
 
         const { email, name, department, phone, domain } = req.body;
+
+        // Validate department/domain
+        const validation = await validateDeptDomain(department, domain);
+        if (!validation.valid) {
+            return res.status(400).json({ message: validation.message });
+        }
 
         const emailExists = await User.findOne({ email });
         if (emailExists) {
@@ -523,6 +579,12 @@ router.post('/student/:id/replace', protect, authorize('super-admin', 'admin'), 
         }
 
         const { email, name, department, phone, domain, year, regNo } = req.body;
+
+        // Validate department/domain
+        const validation = await validateDeptDomain(department, domain);
+        if (!validation.valid) {
+            return res.status(400).json({ message: validation.message });
+        }
 
         const emailExists = await User.findOne({ email });
         if (emailExists) {
