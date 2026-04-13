@@ -1,243 +1,690 @@
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { useQuery } from "@tanstack/react-query";
-import Skeleton from "react-loading-skeleton";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { GraduationCap, Users, UserSquare2, BookOpen, Trophy, Mail, Phone, Building2, MapPin } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { useNavigate } from "react-router-dom";
+import {
+  GraduationCap,
+  Users,
+  UserSquare2,
+  TrendingUp,
+  Calendar,
+  Plus,
+  History,
+  ShieldCheck,
+  LogOut,
+  Settings,
+  ChevronDown,
+  User as UserIcon,
+  Mail,
+  FileText,
+  Clock,
+  CheckCircle2,
+  Ban,
+  Power,
+  Info,
+  ExternalLink,
+  Phone,
+  Building2,
+  MapPin,
+  Search,
+  Filter,
+  Edit,
+  Trash2
+} from "lucide-react";
+import {
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  LabelList
+} from "recharts";
+import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
+import Skeleton from "react-loading-skeleton";
 
 export default function StudentDashboard() {
-  const { user } = useAuth();
-  const navigate = useNavigate();
-  const [profile, setProfile] = useState(null);
-  const [assignedFaculty, setAssignedFaculty] = useState([]);
-  const [userGroups, setUserGroups] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedFaculty, setSelectedFaculty] = useState(null);
+  const { user, logout } = useAuth();
+  const queryClient = useQueryClient();
+  const [updateValue, setUpdateValue] = useState("");
+  
+  // Modal states
+  const [isStudentsModalOpen, setIsStudentsModalOpen] = useState(false);
+  const [isFacultiesModalOpen, setIsFacultiesModalOpen] = useState(false);
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState(null);
+  
+  // Edit state
+  const [editingLog, setEditingLog] = useState(null);
+  const [editValue, setEditValue] = useState("");
 
-  useEffect(() => {
-    if (!user?._id) return;
-    (async () => {
-      try {
-        const [profileRes, facultyRes, groupsRes] = await Promise.all([
-          api.get(`/users/${user._id}`),
-          api.get('/users/role/admin'),
-          api.get('/groups'),
-        ]);
-        setProfile(profileRes.data);
+  // Filter states
+  const [searchTerm, setSearchTerm] = useState("");
+  const [deptFilter, setDeptFilter] = useState("all");
 
-        const stProfile = profileRes.data;
-        const allFaculty = facultyRes.data;
-        const stDomains = (stProfile.domain || "").split(',').map(d => d.trim()).filter(Boolean);
+  // Fetch Stats (Students & Faculties)
+  const { data: stats, isLoading: statsLoading } = useQuery({
+    queryKey: ["publicStats"],
+    queryFn: async () => {
+      const res = await api.get("/users/public/stats");
+      return res.data;
+    }
+  });
 
-        const assigned = allFaculty.filter(f => {
-          if (stProfile.addedBy && f._id === stProfile.addedBy._id) return true;
-          if (f.department !== stProfile.department && !f.department) return false;
-          const fDomains = (f.domain || "").split(',').map(d => d.trim()).filter(Boolean);
-          if (stDomains.length > 0 && fDomains.length > 0) {
-            return fDomains.some(d => stDomains.includes(d));
-          }
-          return f.department === stProfile.department;
-        });
-        setAssignedFaculty(assigned);
+  // Fetch Departments
+  const { data: departments = [] } = useQuery({
+    queryKey: ["departments"],
+    queryFn: async () => {
+      const res = await api.get("/departments");
+      return res.data;
+    }
+  });
 
-        const groups = groupsRes.data.map(g => ({
-          _id: g._id,
-          name: g.name,
-          members: g.members?.length || 0,
-          role: g.creator?._id === user._id ? "Creator" : "Member",
-        }));
-        setUserGroups(groups);
-      } catch (err) {
-        console.error("Failed to load dashboard data", err);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [user?._id]);
+  // Fetch My Updates
+  const { data: myUpdates = [], isLoading: updatesLoading } = useQuery({
+    queryKey: ["myUpdates"],
+    queryFn: async () => {
+      const res = await api.get("/users/student/updates/my");
+      return res.data;
+    }
+  });
 
-  const getInitials = (name) => {
-    if (!name) return "U";
-    return name.split(" ").map(n => n[0]).join("").toUpperCase().substring(0, 2);
+  // Fetch My Profile (detailed)
+  const { data: profile, isLoading: profileLoading } = useQuery({
+    queryKey: ["profile", user?._id],
+    queryFn: async () => {
+      const res = await api.get(`/users/${user?._id}`);
+      return res.data;
+    },
+    enabled: !!user?._id
+  });
+
+  // Fetch All Students (for modal)
+  const { data: allStudents = [], isLoading: studentsLoading } = useQuery({
+    queryKey: ["allStudents"],
+    queryFn: async () => {
+      const res = await api.get("/users/role/student");
+      return res.data;
+    },
+    enabled: isStudentsModalOpen
+  });
+
+  // Fetch All Faculties (for modal)
+  const { data: allFaculties = [], isLoading: facultiesLoading } = useQuery({
+    queryKey: ["allFaculties"],
+    queryFn: async () => {
+      const res = await api.get("/users/role/admin");
+      return res.data;
+    },
+    enabled: isFacultiesModalOpen
+  });
+
+  // Mutations with Optimistic Updates
+  const submitUpdateMutation = useMutation({
+    mutationFn: async (newUpdate) => {
+      const res = await api.post("/users/student/updates", newUpdate);
+      return res.data;
+    },
+    onMutate: async (newUpdate) => {
+      // Cancel any outgoing refetches (so they don't overwrite our optimistic update)
+      await queryClient.cancelQueries({ queryKey: ["myUpdates"] });
+      
+      // Snapshot the previous value
+      const previousUpdates = queryClient.getQueryData(["myUpdates"]);
+      
+      // Optimistically update to the new value
+      queryClient.setQueryData(["myUpdates"], (old) => [
+        { 
+          ...newUpdate, 
+          _id: `temp-${Date.now()}`, 
+          createdAt: new Date().toISOString() 
+        },
+        ...(old || []),
+      ]);
+      
+      return { previousUpdates };
+    },
+    onError: (err, newUpdate, context) => {
+      // If the mutation fails, use the context returned from onMutate to roll back
+      queryClient.setQueryData(["myUpdates"], context.previousUpdates);
+      toast.error(err.response?.data?.message || "Failed to save update. Please try again.");
+    },
+    onSettled: () => {
+      // Always refetch after error or success to ensure we have the correct data from the server
+      queryClient.invalidateQueries({ queryKey: ["myUpdates"] });
+    },
+    onSuccess: (data) => {
+      toast.success("Progress saved successfully!");
+      setUpdateValue("");
+    },
+  });
+
+  const deleteUpdateMutation = useMutation({
+    mutationFn: async (id) => {
+      const res = await api.delete(`/users/student/updates/${id}`);
+      return res.data;
+    },
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ["myUpdates"] });
+      const previousUpdates = queryClient.getQueryData(["myUpdates"]);
+      queryClient.setQueryData(["myUpdates"], (old) => 
+        (old || []).filter(update => update._id !== id)
+      );
+      return { previousUpdates };
+    },
+    onError: (err, id, context) => {
+      queryClient.setQueryData(["myUpdates"], context.previousUpdates);
+      toast.error("Failed to delete log");
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["myUpdates"] });
+    },
+    onSuccess: () => {
+      toast.success("Log removed");
+    }
+  });
+
+  const editUpdateMutation = useMutation({
+    mutationFn: async ({ id, value }) => {
+      const res = await api.put(`/users/student/updates/${id}`, { value });
+      return res.data;
+    },
+    onMutate: async ({ id, value }) => {
+      await queryClient.cancelQueries({ queryKey: ["myUpdates"] });
+      const previousUpdates = queryClient.getQueryData(["myUpdates"]);
+      queryClient.setQueryData(["myUpdates"], (old) => 
+        (old || []).map(update => update._id === id ? { ...update, value } : update)
+      );
+      return { previousUpdates };
+    },
+    onError: (err, variables, context) => {
+      queryClient.setQueryData(["myUpdates"], context.previousUpdates);
+      toast.error("Failed to update log");
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["myUpdates"] });
+      setEditingLog(null);
+    },
+    onSuccess: () => {
+      toast.success("Log corrected");
+    }
+  });
+
+  const handleUpdateSubmit = (e) => {
+    e.preventDefault();
+    if (!updateValue) return toast.error("Please enter a value");
+
+    const today = new Date().toISOString().split('T')[0];
+    submitUpdateMutation.mutate({
+      date: today,
+      type: "Daily Update",
+      value: updateValue
+    });
   };
 
-  const groupsCreated = userGroups.filter(g => g.role === "Creator").length;
-  const groupsEnrolled = userGroups.length;
+  const handleEditClick = useCallback((log) => {
+    setEditingLog(log);
+    setEditValue(log.value);
+  }, []);
 
-  if (loading) {
+  const handleEditSubmit = () => {
+    if (!editValue) return toast.error("Value cannot be empty");
+    editUpdateMutation.mutate({ id: editingLog._id, value: editValue });
+  };
+
+  // Efficient Data Processing
+  const extractAndSumNumbers = useCallback((str) => {
+    if (typeof str === 'number') return str;
+    const matches = str.match(/-?\d+(\.\d+)?/g);
+    if (!matches) return 1; 
+    return matches.reduce((sum, n) => sum + parseFloat(n), 0);
+  }, []);
+
+  const dashboardChartData = useMemo(() => {
+    const grouped = myUpdates.reduce((acc, curr) => {
+      const val = extractAndSumNumbers(curr.value);
+      if (!acc[curr.date]) {
+        acc[curr.date] = { date: curr.date, total: 0 };
+      }
+      acc[curr.date].total += val;
+      return acc;
+    }, {});
+
+    return Object.values(grouped)
+      .sort((a, b) => new Date(a.date) - new Date(b.date))
+      .slice(-7)
+      .map(u => ({
+        name: new Date(u.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        value: u.total,
+        rawDate: u.date
+      }));
+  }, [myUpdates, extractAndSumNumbers]);
+
+  const lastUpdate = useMemo(() => {
+    if (!myUpdates.length) return "—";
+    return myUpdates[0].date;
+  }, [myUpdates]);
+
+  const getInitials = (name) => {
+    return name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U';
+  };
+
+  const filteredStudents = useMemo(() => {
+    return allStudents.filter(u => {
+      const matchesSearch = u.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                           u.email?.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesDept = deptFilter === "all" || u.department === deptFilter;
+      return matchesSearch && matchesDept;
+    });
+  }, [allStudents, searchTerm, deptFilter]);
+
+  const filteredFaculties = useMemo(() => {
+    return allFaculties.filter(u => {
+      const matchesSearch = u.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                           u.email?.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesDept = deptFilter === "all" || u.department === deptFilter;
+      return matchesSearch && matchesDept;
+    });
+  }, [allFaculties, searchTerm, deptFilter]);
+
+  // Helper Modal Content Component
+  const UserListModal = ({ title, icon: Icon, users, loading, isOpen, setIsOpen }) => (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-hidden flex flex-col p-8 rounded-[40px] border-none shadow-2xl">
+        <DialogHeader>
+          <DialogTitle className="text-2xl font-black flex items-center gap-3">
+            <Icon className="text-blue-600" />
+            {title}
+          </DialogTitle>
+        </DialogHeader>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Input 
+              placeholder="Search by name..." 
+              className="pl-11 h-12 rounded-2xl bg-slate-50 border-slate-200"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <Select value={deptFilter} onValueChange={setDeptFilter}>
+            <SelectTrigger className="h-12 rounded-2xl bg-slate-50 border-slate-200">
+              <div className="flex items-center gap-2">
+                <Filter className="w-4 h-4 text-slate-400" />
+                <SelectValue placeholder="All Departments" />
+              </div>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Departments</SelectItem>
+              {departments.map(d => (
+                <SelectItem key={d._id} value={d.name}>{d.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex-1 overflow-y-auto space-y-3 mt-6 pr-2 custom-scrollbar">
+          {loading ? (
+            <Skeleton count={5} height={60} className="mb-3 rounded-2xl" />
+          ) : users.length === 0 ? (
+            <div className="text-center py-10 text-slate-400">No matches found.</div>
+          ) : users.map((u) => (
+            <div key={u._id} onClick={() => setSelectedUser(u)} className="flex items-center gap-4 p-4 bg-slate-50 hover:bg-white hover:shadow-md border border-transparent hover:border-slate-100 rounded-[24px] cursor-pointer transition-all">
+              <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold overflow-hidden bg-white border border-slate-100">
+                {u.profilePicture ? (
+                  <img src={u.profilePicture} alt={u.name} className="h-full w-full object-cover" />
+                ) : getInitials(u.name)}
+              </div>
+              <div className="flex flex-col">
+                <span className="font-bold text-slate-800 leading-none mb-1">{u.name}</span>
+                <span className="text-xs text-slate-400">{u.department || "General"}</span>
+              </div>
+              <ChevronDown className="w-4 h-4 text-slate-300 ml-auto -rotate-90" />
+            </div>
+          ))}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+
+  if (profileLoading || statsLoading) {
     return (
       <DashboardLayout title="Dashboard">
-        <div className="max-w-[1200px] mx-auto pb-8 pt-5 text-center">
-            <Skeleton height={200} className="w-full rounded-2xl mb-8" />
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6 lg:gap-8 mb-8">
-                <Skeleton height={300} className="w-full rounded-2xl" />
-                <Skeleton height={300} className="w-full rounded-2xl" />
-            </div>
+        <div className="space-y-8 animate-pulse">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            {[1, 2, 3, 4].map(i => <div key={i} className="h-32 bg-slate-100 rounded-3xl" />)}
+          </div>
+          <div className="h-64 bg-slate-100 rounded-3xl w-full" />
         </div>
       </DashboardLayout>
     );
   }
 
   return (
-    <DashboardLayout title="Dashboard">
-      <div className="max-w-[1200px] mx-auto pb-8">
+    <DashboardLayout title="Student Dashboard">
+      <div className="max-w-[1400px] mx-auto space-y-8 pb-10">
 
-        {/* Header / Welcome Banner */}
-        {profile?.addedBy && (
-          <div className="bg-white rounded-2xl p-5 md:p-6 mb-6 md:mb-8 shadow-[0_2px_8px_rgba(0,0,0,0.05)] border border-slate-200 flex items-center justify-between animate-in fade-in slide-in-from-bottom-2 duration-500">
-            <div>
-              <h2 className="text-xl font-bold text-slate-800">Welcome, {profile.name || user?.name || "Student"}!</h2>
-              <p className="text-slate-500 mt-2 text-sm md:text-base flex items-center gap-2">
-                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-50 text-blue-600">
-                  <UserSquare2 className="w-3.5 h-3.5" />
-                </span>
-                Added by Faculty: <span className="font-medium text-blue-600">{profile.addedBy.name || profile.addedBy.email}</span>
-              </p>
-            </div>
-            <div className="hidden sm:flex h-12 w-12 rounded-xl bg-blue-50 items-center justify-center text-blue-600 border border-blue-100">
-              <GraduationCap className="h-6 w-6" />
-            </div>
-          </div>
-        )}
-
-        {/* Achievements Quick Card → links to full page */}
-
-
-        {/* Two Box Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6 lg:gap-8 mb-8">
-
-          {/* Box 1: Assigned Faculty */}
-          <div className="bg-white rounded-2xl p-5 md:p-6 shadow-[0_2px_8px_rgba(0,0,0,0.05)] border border-slate-200 transition-transform active:scale-[0.98] animate-in fade-in slide-in-from-bottom-4 duration-500 delay-100">
-            <div className="flex items-center gap-3 mb-5">
-              <div className="w-[45px] h-[45px] rounded-xl flex items-center justify-center bg-blue-100 text-blue-600 shrink-0">
-                <UserSquare2 className="w-[22px] h-[22px]" />
+        {/* Stats Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          {[
+            { 
+              label: "Total Students", 
+              value: stats?.students || 0, 
+              icon: Users, 
+              color: "text-blue-600", 
+              bg: "bg-blue-50",
+              onClick: () => setIsStudentsModalOpen(true)
+            },
+            { 
+              label: "Total Faculties", 
+              value: stats?.faculty || 0, 
+              icon: UserIcon, 
+              color: "text-indigo-600", 
+              bg: "bg-indigo-50",
+              onClick: () => setIsFacultiesModalOpen(true)
+            },
+            { 
+              label: "My Updates", 
+              value: myUpdates.length, 
+              icon: TrendingUp, 
+              color: "text-emerald-600", 
+              bg: "bg-emerald-50",
+              onClick: () => setIsHistoryModalOpen(true)
+            },
+            { 
+              label: "Last Update", 
+              value: lastUpdate, 
+              icon: Calendar, 
+              color: "text-orange-600", 
+              bg: "bg-orange-50" 
+            }
+          ].map((stat, i) => (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.1 }}
+              onClick={stat.onClick}
+              className={`bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm transition-all duration-300 ${stat.onClick ? "hover:shadow-xl hover:-translate-y-1 cursor-pointer" : ""}`}
+            >
+              <div className="flex items-center gap-3 mb-4">
+                <div className={`${stat.bg} ${stat.color} p-2.5 rounded-2xl`}>
+                  <stat.icon className="w-5 h-5" />
+                </div>
+                <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">{stat.label}</h3>
               </div>
-              <span className="font-semibold text-slate-800 text-base">Assigned Faculty</span>
-            </div>
-            <div className="flex flex-col">
-              {assignedFaculty.length === 0 ? (
-                <p className="text-slate-500 text-sm py-4 text-center bg-slate-50 rounded-lg">No faculty assigned to your domain.</p>
-              ) : (
-                assignedFaculty.map((faculty, idx) => (
-                  <div key={faculty._id || idx} onClick={() => setSelectedFaculty(faculty)} className="flex items-center justify-between py-3 border-b border-slate-200 last:border-0 hover:bg-slate-50 transition-colors px-2 -mx-2 rounded-lg cursor-pointer">
-                    <div className="flex items-center gap-3">
-                      <div className="w-[35px] h-[35px] rounded-full bg-slate-100 flex items-center justify-center text-blue-600 font-semibold text-sm shrink-0 overflow-hidden border border-slate-200">
-                        {faculty.profilePicture ? (
-                          <img src={faculty.profilePicture} alt={faculty.name} className="w-full h-full object-cover" />
-                        ) : (
-                          getInitials(faculty.name || faculty.email)
-                        )}
-                      </div>
-                      <div>
-                        <div className="font-medium text-slate-800 text-[0.95rem]">{faculty.name || faculty.email}</div>
-                        <div className="text-[0.8rem] text-slate-500">{faculty.department || "General"}</div>
-                      </div>
-                    </div>
-                    <span className="text-[0.75rem] px-2.5 py-1 rounded-full bg-green-100 text-green-700 font-medium whitespace-nowrap">Active</span>
-                  </div>
-                ))
-              )}
-            </div>
-            <div className="mt-4 text-right border-t border-slate-100 pt-3">
-              <span className="text-blue-600 text-[0.9rem] font-medium">{assignedFaculty.length} faculty assigned</span>
-            </div>
-          </div>
-
-          {/* Box 2: Groups Information */}
-          <div className="bg-white rounded-2xl p-5 md:p-6 shadow-[0_2px_8px_rgba(0,0,0,0.05)] border border-slate-200 transition-transform active:scale-[0.98] animate-in fade-in slide-in-from-bottom-4 duration-500 delay-200">
-            <div className="flex items-center gap-3 mb-5">
-              <div className="w-[45px] h-[45px] rounded-xl flex items-center justify-center bg-green-100 text-green-600 shrink-0">
-                <Users className="w-[22px] h-[22px]" />
-              </div>
-              <span className="font-semibold text-slate-800 text-base">My Groups</span>
-            </div>
-            <div className="flex flex-col gap-3.5 mb-5 space-y-1">
-              <div className="flex justify-between items-center p-3 bg-slate-50 rounded-xl border border-slate-100/50">
-                <span className="text-slate-500 text-[0.95rem] font-medium">Groups Created</span>
-                <span className="font-bold text-[1.3rem] text-blue-600">{groupsCreated}</span>
-              </div>
-              <div className="flex justify-between items-center p-3 bg-slate-50 rounded-xl border border-slate-100/50">
-                <span className="text-slate-500 text-[0.95rem] font-medium">Groups Enrolled</span>
-                <span className="font-bold text-[1.3rem] text-green-600">{groupsEnrolled}</span>
-              </div>
-            </div>
-            <div className="flex flex-col mt-2">
-              {userGroups.length === 0 ? (
-                <p className="text-slate-500 text-sm py-4 text-center bg-slate-50 rounded-lg">No groups yet. Create one from Chat!</p>
-              ) : (
-                userGroups.map((group, idx) => (
-                  <div key={group._id || idx} className="flex justify-between items-center py-2.5 border-b border-slate-200 last:border-0 hover:bg-slate-50 transition-colors px-2 -mx-2 rounded-lg cursor-pointer">
-                    <div>
-                      <div className="font-medium text-slate-800 text-[0.95rem] flex items-center gap-1.5 pl-1">
-                        <BookOpen className="w-3.5 h-3.5 text-slate-400" />
-                        {group.name}
-                      </div>
-                      <div className="text-[0.82rem] text-slate-500 ml-5">{group.members} members</div>
-                    </div>
-                    <span className={`text-[0.75rem] px-2.5 py-1 rounded-full whitespace-nowrap font-medium ${group.role === 'Creator' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'}`}>
-                      {group.role}
-                    </span>
-                  </div>
-                ))
-              )}
-            </div>
-            <div className="mt-4 text-right border-t border-slate-100 pt-3">
-              <span className="text-green-600 text-[0.9rem] font-medium">{userGroups.length} total groups</span>
-            </div>
-          </div>
-
+              <div className="text-3xl font-black text-slate-900">{stat.value}</div>
+            </motion.div>
+          ))}
         </div>
-      </div>
 
-      <Dialog open={!!selectedFaculty} onOpenChange={(open) => !open && setSelectedFaculty(null)}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Faculty Profile</DialogTitle>
-          </DialogHeader>
-          {selectedFaculty && (
-            <div className="flex flex-col gap-4 py-4">
-              <div className="flex items-center gap-4">
-                <div className="h-16 w-16 rounded-full border border-slate-200 overflow-hidden bg-slate-100 flex items-center justify-center text-xl font-bold text-blue-600 shrink-0">
-                  {selectedFaculty.profilePicture ? (
-                    <img src={selectedFaculty.profilePicture} alt={selectedFaculty.name} className="h-full w-full object-cover" />
-                  ) : (
-                    getInitials(selectedFaculty.name || selectedFaculty.email)
-                  )}
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-slate-800">{selectedFaculty.name || selectedFaculty.email}</h3>
-                  <p className="text-sm text-slate-500 capitalize px-2 py-0.5 bg-slate-100 rounded-full inline-block mt-1">
-                    Faculty Member
-                  </p>
-                </div>
-              </div>
-              <div className="grid gap-3 mt-2">
-                <div className="flex items-center gap-3 text-sm text-slate-600 bg-slate-50 p-3 rounded-lg border border-slate-100">
-                  <Mail className="h-4 w-4 text-slate-400" />
-                  <span>{selectedFaculty.email}</span>
-                </div>
-                {selectedFaculty.phone && (
-                  <div className="flex items-center gap-3 text-sm text-slate-600 bg-slate-50 p-3 rounded-lg border border-slate-100">
-                    <Phone className="h-4 w-4 text-slate-400" />
-                    <span>{selectedFaculty.phone}</span>
-                  </div>
-                )}
-                <div className="flex items-center gap-3 text-sm text-slate-600 bg-slate-50 p-3 rounded-lg border border-slate-100">
-                  <Building2 className="h-4 w-4 text-slate-400" />
-                  <span>{selectedFaculty.department || "General Department"}</span>
-                </div>
-                {selectedFaculty.domain && (
-                  <div className="flex items-start gap-3 text-sm text-slate-600 bg-slate-50 p-3 rounded-lg border border-slate-100">
-                    <MapPin className="h-4 w-4 text-slate-400 shrink-0 mt-0.5" />
-                    <span>{selectedFaculty.domain}</span>
-                  </div>
-                )}
-              </div>
+        {/* Daily Update Action Card */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="bg-white p-8 rounded-[40px] border border-slate-100 shadow-sm flex flex-col lg:flex-row justify-between items-center gap-8 relative overflow-hidden"
+        >
+          <div className="relative z-10 flex flex-col gap-2 lg:flex-1">
+            <h2 className="text-2xl font-black text-slate-900 flex items-center justify-center lg:justify-start gap-3">
+              <Plus className="text-blue-600" />
+              Daily Progress
+            </h2>
+            <p className="text-slate-500 font-medium">Add multiple updates per day to track your detailed progress.</p>
+          </div>
+
+          <form onSubmit={handleUpdateSubmit} className="relative z-10 flex items-center justify-center lg:justify-end gap-3 w-full lg:flex-[2]">
+            <Input
+              type="text"
+              placeholder="What did you achieve? (e.g. Solved 10 DSA, Attended Labs...)"
+              value={updateValue}
+              onChange={(e) => setUpdateValue(e.target.value)}
+              className="flex-1 h-12 rounded-full bg-slate-50 border-slate-200 text-slate-700 font-semibold px-6 focus:ring-blue-500"
+            />
+            <Button
+              type="submit"
+              disabled={submitUpdateMutation.isPending}
+              className="h-12 px-8 rounded-full bg-slate-900 hover:bg-blue-600 text-white font-bold shadow-lg shadow-slate-200 transition-all flex gap-2 shrink-0"
+            >
+              {submitUpdateMutation.isPending ? "Adding..." : "Add Entry"}
+            </Button>
+          </form>
+        </motion.div>
+
+        {/* Analytics & History Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2 bg-white p-8 rounded-[40px] border border-slate-100 shadow-sm space-y-6">
+            <div className="flex justify-between items-center">
+              <h3 className="text-xl font-bold flex items-center gap-3">
+                <TrendingUp className="text-blue-600" />
+                Performance Trends
+              </h3>
             </div>
-          )}
-        </DialogContent>
-      </Dialog>
+
+            <div className="h-[400px] w-full mt-4 relative bg-slate-50/30 rounded-3xl p-4">
+              {dashboardChartData.length === 0 ? (
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400">
+                  <TrendingUp className="w-10 h-10 mb-2 opacity-20" />
+                  <p className="text-sm font-medium">No activity data available</p>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={dashboardChartData} layout="vertical" margin={{ left: 10, right: 60, top: 20, bottom: 20 }}>
+                    <defs>
+                      <linearGradient id="colorValue" x1="0" y1="0" x2="1" y2="0">
+                        <stop offset="0%" stopColor="#2563eb" stopOpacity={0.8} />
+                        <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.2} />
+                      </linearGradient>
+                      <filter id="glow">
+                        <feGaussianBlur stdDeviation="3" result="coloredBlur" />
+                        <feMerge>
+                          <feMergeNode in="coloredBlur" />
+                          <feMergeNode in="SourceGraphic" />
+                        </feMerge>
+                      </filter>
+                    </defs>
+                    <CartesianGrid strokeDasharray="4 4" horizontal={false} stroke="#e2e8f0" />
+                    <XAxis type="number" hide />
+                    <YAxis 
+                      dataKey="name" 
+                      type="category" 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tick={{ fill: '#1e293b', fontSize: 13, fontWeight: 800 }} 
+                      width={70} 
+                    />
+                    <Tooltip 
+                      cursor={{ stroke: '#e2e8f0', strokeWidth: 2, strokeDasharray: '5 5' }}
+                      contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', padding: '16px' }} 
+                    />
+                    <Area 
+                      type="monotone" 
+                      dataKey="value" 
+                      stroke="#2563eb" 
+                      strokeWidth={5} 
+                      fillOpacity={1} 
+                      fill="url(#colorValue)" 
+                      animationDuration={2000}
+                      filter="url(#glow)"
+                      dot={{ r: 6, fill: '#fff', stroke: '#2563eb', strokeWidth: 3 }}
+                      activeDot={{ r: 8, fill: '#2563eb', stroke: '#fff', strokeWidth: 3 }}
+                    >
+                      <LabelList 
+                        dataKey="value" 
+                        position="right" 
+                        offset={20} 
+                        style={{ fill: '#1e293b', fontSize: 14, fontWeight: 900, fontFamily: 'Inter' }} 
+                      />
+                    </Area>
+                  </AreaChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+            <p className="text-[10px] text-center text-slate-400 font-bold uppercase tracking-widest mt-2">Showing Daily Performance Context (Vertical View)</p>
+          </div>
+
+          <div className="bg-white p-8 rounded-[40px] border border-slate-100 shadow-sm space-y-6">
+            <h3 className="text-xl font-bold flex items-center gap-3">
+              <History className="text-slate-600" />
+              Recent Logs
+            </h3>
+            <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+              {myUpdates.length === 0 ? (
+                <Skeleton count={5} height={60} className="mb-4 rounded-2xl" />
+              ) : myUpdates.slice(0, 15).map((u) => (
+                <div key={u._id} className="group relative flex flex-col gap-1 p-4 bg-slate-50 rounded-2xl border border-transparent hover:border-slate-200 transition-all">
+                  <div className="flex justify-between items-start">
+                    <span className="text-[10px] font-black text-slate-400">{u.date}</span>
+                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                       <button onClick={() => handleEditClick(u)} className="p-1 hover:bg-white rounded-md text-slate-400 hover:text-blue-600 transition-colors">
+                          <Edit className="w-3 h-3" />
+                       </button>
+                       <button onClick={() => deleteUpdateMutation.mutate(u._id)} className="p-1 hover:bg-white rounded-md text-slate-400 hover:text-red-600 transition-colors">
+                          <Trash2 className="w-3 h-3" />
+                       </button>
+                    </div>
+                  </div>
+                  <span className="text-sm font-semibold text-slate-800 break-words">{u.value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* MODALS */}
+        
+        <UserListModal 
+          title="Students List" 
+          icon={Users} 
+          users={filteredStudents} 
+          loading={studentsLoading} 
+          isOpen={isStudentsModalOpen} 
+          setIsOpen={setIsStudentsModalOpen} 
+        />
+        
+        <UserListModal 
+          title="Faculties List" 
+          icon={UserIcon} 
+          users={filteredFaculties} 
+          loading={facultiesLoading} 
+          isOpen={isFacultiesModalOpen} 
+          setIsOpen={setIsFacultiesModalOpen} 
+        />
+
+        <Dialog open={isHistoryModalOpen} onOpenChange={setIsHistoryModalOpen}>
+          <DialogContent className="sm:max-w-[700px] max-h-[80vh] overflow-hidden flex flex-col p-8 rounded-[40px] border-none shadow-2xl">
+            <DialogHeader>
+              <DialogTitle className="text-2xl font-black flex items-center gap-3">
+                <History className="text-emerald-600" />
+                Management Console
+              </DialogTitle>
+              <DialogDescription>View, edit, or delete your historical progress logs.</DialogDescription>
+            </DialogHeader>
+            <div className="flex-1 overflow-y-auto space-y-4 mt-6 pr-2 custom-scrollbar">
+              {myUpdates.map((u) => (
+                <div key={u._id} className="p-5 bg-slate-50 border border-slate-100 rounded-[24px] flex justify-between items-center group">
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{u.date}</span>
+                    <p className="text-base font-semibold text-slate-800 break-words">{u.value}</p>
+                  </div>
+                  <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                    <Button variant="ghost" size="icon" onClick={() => handleEditClick(u)} className="h-10 w-10 rounded-xl hover:bg-white hover:text-blue-600">
+                      <Edit className="w-4 h-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => deleteUpdateMutation.mutate(u._id)} className="h-10 w-10 rounded-xl hover:bg-white hover:text-red-600">
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={!!editingLog} onOpenChange={() => setEditingLog(null)}>
+          <DialogContent className="sm:max-w-[450px] p-8 rounded-[40px] border-none shadow-2xl">
+            <DialogHeader>
+              <DialogTitle className="text-2xl font-black">Edit Progress Log</DialogTitle>
+              <DialogDescription className="font-medium text-slate-500">Correct your activity entry below.</DialogDescription>
+            </DialogHeader>
+            <div className="py-6">
+              <label className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2 block">Your Update</label>
+              <Input 
+                value={editValue} 
+                onChange={(e) => setEditValue(e.target.value)} 
+                className="h-14 rounded-2xl bg-slate-50 border-slate-200 font-semibold"
+              />
+            </div>
+            <DialogFooter className="flex gap-3">
+              <Button variant="ghost" onClick={() => setEditingLog(null)} className="h-12 rounded-2xl font-bold flex-1">Cancel</Button>
+              <Button onClick={handleEditSubmit} disabled={editUpdateMutation.isPending} className="h-12 rounded-2xl bg-slate-900 hover:bg-blue-600 font-bold flex-1">
+                {editUpdateMutation.isPending ? "Saving..." : "Save Changes"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={!!selectedUser} onOpenChange={(open) => !open && setSelectedUser(null)}>
+          <DialogContent className="sm:max-w-[480px] p-0 overflow-hidden border-none shadow-2xl rounded-[40px]">
+             {selectedUser && (
+               <div className="flex flex-col bg-white">
+                 <div className="bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 p-10 text-white text-center">
+                    <div className="mx-auto w-24 h-24 mb-4 rounded-[32px] overflow-hidden bg-white/20 backdrop-blur-xl border border-white/30 flex items-center justify-center p-1 shadow-2xl">
+                       <div className="w-full h-full rounded-[26px] overflow-hidden bg-white/10 flex items-center justify-center font-black text-2xl">
+                          {selectedUser.profilePicture ? (
+                            <img src={selectedUser.profilePicture} alt={selectedUser.name} className="h-full w-full object-cover" />
+                          ) : getInitials(selectedUser.name)}
+                       </div>
+                    </div>
+                    <h3 className="text-2xl font-black tracking-tight">{selectedUser.name}</h3>
+                    <p className="text-blue-300 font-bold uppercase text-[10px] tracking-[0.2em] mt-1">{selectedUser.role?.replace('-', ' ')}</p>
+                 </div>
+                 
+                 <div className="p-8 space-y-4">
+                    {[
+                      { icon: Mail, label: "Email", value: selectedUser.email },
+                      { icon: Building2, label: "Department", value: selectedUser.department || "General" },
+                      { icon: Phone, label: "Phone", value: selectedUser.phone, hide: !selectedUser.phone },
+                      { icon: MapPin, label: "Specialization", value: selectedUser.domain, hide: !selectedUser.domain }
+                    ].map((item, i) => !item.hide && (
+                      <div key={i} className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100/50">
+                        <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-sm border border-slate-100">
+                          <item.icon className="w-5 h-5 text-blue-600" />
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{item.label}</span>
+                          <span className="text-sm font-bold text-slate-800">{item.value}</span>
+                        </div>
+                      </div>
+                    ))}
+                    <Button onClick={() => setSelectedUser(null)} className="w-full h-12 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-bold mt-4">Close Profile</Button>
+                 </div>
+               </div>
+             )}
+          </DialogContent>
+        </Dialog>
+
+      </div>
     </DashboardLayout>
   );
 }

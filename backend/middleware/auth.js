@@ -16,7 +16,17 @@ export const protect = async (req, res, next) => {
                 return res.status(401).json({ message: 'User no longer exists' });
             }
 
-            if (user.tokenVersion !== decoded.tokenVersion) {
+            // Check token version for multi-device session management
+            const dbTokenVersion = Number(user.tokenVersion || 0);
+            const jwtTokenVersion = Number(decoded.tokenVersion || 0);
+
+            if (dbTokenVersion !== jwtTokenVersion) {
+                console.log(`[DEBUG] Session Invalid!`);
+                console.log(`[DEBUG] User: ${user.email} (${user.role})`);
+                console.log(`[DEBUG] Path: ${req.method} ${req.originalUrl}`);
+                console.log(`[DEBUG] DB Version: ${dbTokenVersion}`);
+                console.log(`[DEBUG] JWT Version: ${jwtTokenVersion}`);
+                console.log(`[DEBUG] JWT Payload:`, JSON.stringify(decoded));
                 return res.status(401).json({ message: 'Session expired, please login again' });
             }
 
