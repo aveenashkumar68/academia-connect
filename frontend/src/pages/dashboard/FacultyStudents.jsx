@@ -218,27 +218,43 @@ export default function FacultyStudents() {
 
     const facultyName = user?.name || "Faculty";
 
-    // Allowed domains for faculty
+    // Allowed domains and departments for faculty (from assignments)
     const allowedDomains = useMemo(() => {
-        if (user?.role !== 'admin' || !user?.domain) return null;
+        if (user?.role !== 'admin') return null;
+        // Use assignments if available
+        if (user?.assignments?.length > 0) {
+            const domains = user.assignments.map(a => a.domain).filter(Boolean);
+            return domains.length > 0 ? domains : null;
+        }
+        // Legacy fallback
+        if (!user?.domain) return null;
         return user.domain.split(',').map(d => d.trim()).filter(Boolean);
+    }, [user]);
+
+    const allowedDepartments = useMemo(() => {
+        if (user?.role !== 'admin') return null;
+        if (user?.assignments?.length > 0) {
+            return [...new Set(user.assignments.map(a => a.department).filter(Boolean))];
+        }
+        return user?.department ? [user.department] : null;
     }, [user]);
 
     // Auto-select department and domain if faculty
     useEffect(() => {
-        if (user?.role === 'admin' && user?.department && departments.length > 0) {
+        if (user?.role === 'admin' && departments.length > 0) {
             let updates = {};
             let isUpdate = false;
 
-            if (!formData.department) {
-                updates.department = user.department;
-                const dept = departments.find(d => d.name === user.department);
+            if (!formData.department && allowedDepartments?.length > 0) {
+                updates.department = allowedDepartments[0];
+                const dept = departments.find(d => d.name === allowedDepartments[0]);
                 setSelectedDept(dept || null);
                 isUpdate = true;
             }
 
             if (formData.domains.length === 0 && allowedDomains && allowedDomains.length > 0) {
-                updates.domains = allowedDomains;
+                // Auto-select the first allowed domain
+                updates.domains = [allowedDomains[0]];
                 isUpdate = true;
             }
 
@@ -246,7 +262,7 @@ export default function FacultyStudents() {
                 setFormData(prev => ({ ...prev, ...updates }));
             }
         }
-    }, [user, departments, view, formData.department, formData.domains.length, allowedDomains]);
+    }, [user, departments, view, formData.department, formData.domains.length, allowedDomains, allowedDepartments]);
 
     return (
         <DashboardLayout title="Student Management" description="Manage student accounts">
@@ -307,12 +323,15 @@ export default function FacultyStudents() {
                                 </div>
                                 <div className="flex flex-col gap-2">
                                     <Label className="text-[14px] font-medium text-[#2c456e]">Department *</Label>
-                                    <Select value={formData.department} onValueChange={handleDeptChange} disabled={user?.role === 'admin'}>
+                                    <Select value={formData.department} onValueChange={handleDeptChange} disabled={user?.role === 'admin' && allowedDepartments?.length === 1}>
                                         <SelectTrigger className="h-11 rounded-2xl border-[#dae2ed] bg-[#fafcff]">
                                             <SelectValue placeholder="Select department" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {departments.map(dept => (
+                                            {(user?.role === 'admin' && allowedDepartments
+                                                ? departments.filter(d => allowedDepartments.includes(d.name))
+                                                : departments
+                                            ).map(dept => (
                                                 <SelectItem key={dept._id} value={dept.name}>{dept.name}</SelectItem>
                                             ))}
                                         </SelectContent>

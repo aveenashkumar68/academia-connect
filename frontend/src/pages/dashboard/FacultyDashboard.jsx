@@ -37,17 +37,28 @@ export default function FacultyDashboard() {
     const deptMap = {};
     const domainMap = {};
     users.forEach(u => {
-      const dept = u.department || "Unknown";
-      deptMap[dept] = (deptMap[dept] || 0) + 1;
-
-      const domainStr = u.domain || "Unassigned";
-      const domains = domainStr.split(',').map(d => d.trim()).filter(Boolean);
-      if (domains.length === 0) {
-        domainMap["Unassigned"] = (domainMap["Unassigned"] || 0) + 1;
-      } else {
-        domains.forEach(d => {
-          domainMap[d] = (domainMap[d] || 0) + 1;
+      // For faculty with assignments array, use assignments
+      if (u.assignments?.length > 0) {
+        u.assignments.forEach(a => {
+          const dept = a.department || "Unknown";
+          deptMap[dept] = (deptMap[dept] || 0) + 1;
+          const domain = a.domain || "Unassigned";
+          domainMap[domain] = (domainMap[domain] || 0) + 1;
         });
+      } else {
+        // Legacy fallback for students or faculty without assignments
+        const dept = u.department || "Unknown";
+        deptMap[dept] = (deptMap[dept] || 0) + 1;
+
+        const domainStr = u.domain || "Unassigned";
+        const domains = domainStr.split(',').map(d => d.trim()).filter(Boolean);
+        if (domains.length === 0) {
+          domainMap["Unassigned"] = (domainMap["Unassigned"] || 0) + 1;
+        } else {
+          domains.forEach(d => {
+            domainMap[d] = (domainMap[d] || 0) + 1;
+          });
+        }
       }
     });
 

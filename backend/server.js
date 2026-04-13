@@ -12,7 +12,7 @@ import notificationRoutes from './routes/notifications.js';
 import chatRoutes from './routes/chat.js';
 import groupRoutes from './routes/groups.js';
 import connectionRoutes from './routes/connections.js';
-import { seedSuperAdmin, seedDepartments } from './seed.js';
+import { seedSuperAdmin, seedDepartments, migrateFacultyAssignments } from './seed.js';
 
 dotenv.config();
 
@@ -128,6 +128,7 @@ mongoose.connect(MONGODB_URI)
         // Ensure Super-Admin and Departments exist
         await seedSuperAdmin();
         await seedDepartments();
+        await migrateFacultyAssignments();
 
         httpServer.listen(PORT, () => {
             console.log(`Server running on port ${PORT}`);

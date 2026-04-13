@@ -2,6 +2,7 @@ import express from 'express';
 import bcrypt from 'bcryptjs';
 import User from '../models/User.js';
 import Department from '../models/Department.js';
+import FacultyAssignment from '../models/FacultyAssignment.js';
 import Notification from '../models/Notification.js';
 import { protect, authorize } from '../middleware/auth.js';
 import { sendCredentialsEmail } from '../utils/mailer.js';
@@ -30,8 +31,51 @@ const validateDeptDomain = async (departmentName, domainName) => {
     return { valid: true };
 };
 
+// Helper: get all assignments for a faculty user
+const getFacultyAssignments = async (facultyId) => {
+    return FacultyAssignment.find({ faculty: facultyId }).lean();
+};
+
+// Helper: build student query from all faculty assignments
+const buildStudentQueryFromAssignments = (assignments) => {
+    if (!assignments || assignments.length === 0) return null;
+
+    const orConditions = assignments.map(a => {
+        const cond = { department: a.department };
+        if (a.domain) cond.domain = { $regex: a.domain.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&'), $options: 'i' };
+        return cond;
+    });
+
+    return { role: 'student', $or: orConditions };
+};
+
+// Helper: check if a faculty has authority over a student (via any assignment)
+const facultyOwnsStudent = async (facultyId, student) => {
+    const assignments = await getFacultyAssignments(facultyId);
+    if (!assignments || assignments.length === 0) return false;
+
+    for (const a of assignments) {
+        // Department must match
+        if (a.department && student.department && a.department.toLowerCase() === student.department.toLowerCase()) {
+            // If assignment has a domain, check domain overlap
+            if (a.domain && student.domain) {
+                const sDomains = student.domain.split(',').map(d => d.trim().toLowerCase());
+                if (sDomains.includes(a.domain.toLowerCase())) return true;
+            } else if (!a.domain) {
+                // Assignment has no domain — department-level access
+                return true;
+            }
+        }
+    }
+    return false;
+};
+
+// ═══════════════════════════════════════════════════════════════════
+// FACULTY (ADMIN) CREATION — handles duplicate-email-as-new-assignment
+// ═══════════════════════════════════════════════════════════════════
+
 // @route   POST /api/users/admin
-// @desc    Create an admin user
+// @desc    Create an admin user OR add a new assignment to existing admin
 // @access  Private / Super-Admin
 router.post('/admin', protect, authorize('super-admin'), async (req, res) => {
     try {
@@ -43,11 +87,56 @@ router.post('/admin', protect, authorize('super-admin'), async (req, res) => {
             return res.status(400).json({ message: validation.message });
         }
 
-        const userExists = await User.findOne({ email });
-        if (userExists) {
-            return res.status(400).json({ message: 'User already exists' });
+        const existingUser = await User.findOne({ email });
+
+        // ─── Case 1: User already exists ───
+        if (existingUser) {
+            // Only allow adding assignments to admin users
+            if (existingUser.role !== 'admin') {
+                return res.status(400).json({ message: `A user with this email already exists with role '${existingUser.role}'` });
+            }
+
+            // Check if this exact assignment already exists
+            const existingAssignment = await FacultyAssignment.findOne({
+                faculty: existingUser._id,
+                department,
+                domain: domain || '',
+            });
+
+            if (existingAssignment) {
+                return res.status(400).json({ message: `This faculty is already assigned to ${department}${domain ? ' → ' + domain : ''}` });
+            }
+
+            // Create new assignment for existing faculty
+            await FacultyAssignment.create({
+                faculty: existingUser._id,
+                department,
+                domain: domain || '',
+            });
+
+            // Auto-create notification
+            await Notification.create({
+                type: 'user_created',
+                message: `Faculty ${existingUser.name || email} assigned to new department: ${department}${domain ? ' → ' + domain : ''}`,
+                actorName: 'Super Admin',
+                actorRole: 'super-admin',
+            });
+
+            // Fetch complete assignments list
+            const allAssignments = await getFacultyAssignments(existingUser._id);
+
+            res.status(200).json({
+                _id: existingUser._id,
+                email: existingUser.email,
+                role: existingUser.role,
+                assignments: allAssignments,
+                isNewAssignment: true,
+                message: `New assignment added for existing faculty. No new credentials generated.`,
+            });
+            return;
         }
 
+        // ─── Case 2: Brand new user ───
         const unhashedPassword = generateRandomPassword();
         console.log(unhashedPassword);
         const salt = await bcrypt.genSalt(10);
@@ -60,11 +149,18 @@ router.post('/admin', protect, authorize('super-admin'), async (req, res) => {
             name,
             department,
             phone,
-            domain,
+            domain: domain || '',
         });
 
         if (user) {
-            // Await email sending to guarantee delivery on serverless
+            // Create initial FacultyAssignment entry
+            await FacultyAssignment.create({
+                faculty: user._id,
+                department,
+                domain: domain || '',
+            });
+
+            // Send credentials email
             await sendCredentialsEmail(email, 'Admin', email, unhashedPassword, department, domain, name);
 
             // Auto-create notification
@@ -75,10 +171,14 @@ router.post('/admin', protect, authorize('super-admin'), async (req, res) => {
                 actorRole: 'super-admin',
             });
 
+            const allAssignments = await getFacultyAssignments(user._id);
+
             res.status(201).json({
                 _id: user._id,
                 email: user.email,
                 role: user.role,
+                assignments: allAssignments,
+                isNewAssignment: false,
                 message: 'Admin account created. Credentials email is being sent.',
             });
         } else {
@@ -89,6 +189,113 @@ router.post('/admin', protect, authorize('super-admin'), async (req, res) => {
         res.status(500).json({ message: 'Server error' });
     }
 });
+
+// ═══════════════════════════════════════════════════════════════════
+// FACULTY ASSIGNMENT CRUD
+// ═══════════════════════════════════════════════════════════════════
+
+// @route   GET /api/users/admin/:id/assignments
+// @desc    Get all assignments for a faculty
+// @access  Private / Super-Admin & Admin (self)
+router.get('/admin/:id/assignments', protect, authorize('super-admin', 'admin'), async (req, res) => {
+    try {
+        // Admin can only view their own assignments
+        if (req.user.role === 'admin' && req.user.id !== req.params.id) {
+            return res.status(403).json({ message: 'You can only view your own assignments' });
+        }
+
+        const assignments = await FacultyAssignment.find({ faculty: req.params.id })
+            .populate('faculty', 'name email')
+            .lean();
+
+        res.json(assignments);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   POST /api/users/admin/:id/assignments
+// @desc    Add a new assignment to an existing faculty
+// @access  Private / Super-Admin
+router.post('/admin/:id/assignments', protect, authorize('super-admin'), async (req, res) => {
+    try {
+        const faculty = await User.findById(req.params.id);
+        if (!faculty || faculty.role !== 'admin') {
+            return res.status(404).json({ message: 'Faculty not found' });
+        }
+
+        const { department, domain } = req.body;
+
+        const validation = await validateDeptDomain(department, domain);
+        if (!validation.valid) {
+            return res.status(400).json({ message: validation.message });
+        }
+
+        // Check for duplicate
+        const existing = await FacultyAssignment.findOne({
+            faculty: faculty._id,
+            department,
+            domain: domain || '',
+        });
+
+        if (existing) {
+            return res.status(400).json({ message: `This assignment already exists` });
+        }
+
+        const assignment = await FacultyAssignment.create({
+            faculty: faculty._id,
+            department,
+            domain: domain || '',
+        });
+
+        await Notification.create({
+            type: 'user_created',
+            message: `Faculty ${faculty.name || faculty.email} assigned to ${department}${domain ? ' → ' + domain : ''}`,
+            actorName: 'Super Admin',
+            actorRole: 'super-admin',
+        });
+
+        const allAssignments = await getFacultyAssignments(faculty._id);
+        res.status(201).json({ assignment, allAssignments, message: 'Assignment added successfully' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   DELETE /api/users/admin/:id/assignments/:assignmentId
+// @desc    Remove an assignment from a faculty
+// @access  Private / Super-Admin
+router.delete('/admin/:id/assignments/:assignmentId', protect, authorize('super-admin'), async (req, res) => {
+    try {
+        const assignment = await FacultyAssignment.findById(req.params.assignmentId);
+        if (!assignment || assignment.faculty.toString() !== req.params.id) {
+            return res.status(404).json({ message: 'Assignment not found' });
+        }
+
+        // Check if this is the last assignment — warn but still allow
+        const count = await FacultyAssignment.countDocuments({ faculty: req.params.id });
+
+        await FacultyAssignment.findByIdAndDelete(req.params.assignmentId);
+
+        const remaining = await getFacultyAssignments(req.params.id);
+
+        res.json({
+            message: count === 1
+                ? 'Last assignment removed. Faculty has no remaining assignments.'
+                : 'Assignment removed successfully',
+            remainingAssignments: remaining,
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// STUDENT CREATION
+// ═══════════════════════════════════════════════════════════════════
 
 // @route   POST /api/users/student
 // @desc    Create a student user
@@ -153,17 +360,28 @@ router.post('/student', protect, authorize('admin'), async (req, res) => {
     }
 });
 
+// ═══════════════════════════════════════════════════════════════════
+// PROFILE & STATS
+// ═══════════════════════════════════════════════════════════════════
+
 // @route   GET /api/users/profile
 // @desc    Get current user profile
 // @access  Private
 router.get('/profile', protect, async (req, res) => {
     try {
         const user = await User.findById(req.user.id).select('-password').populate('addedBy', 'name email');
-        if (user) {
-            res.json(user);
-        } else {
-            res.status(404).json({ message: 'User not found' });
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
         }
+
+        const userObj = user.toObject();
+
+        // Attach assignments for admin users
+        if (user.role === 'admin') {
+            userObj.assignments = await getFacultyAssignments(user._id);
+        }
+
+        res.json(userObj);
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Server error' });
@@ -201,7 +419,15 @@ router.get('/stats', protect, authorize('super-admin'), async (req, res) => {
 // @access  Private / Super-Admin, Admin & Student
 router.get('/role/:role', protect, authorize('super-admin', 'admin', 'student'), async (req, res) => {
     try {
-        const users = await User.find({ role: req.params.role }).select('-password');
+        const users = await User.find({ role: req.params.role }).select('-password').lean();
+
+        // Attach assignments for admin users
+        if (req.params.role === 'admin') {
+            for (const u of users) {
+                u.assignments = await getFacultyAssignments(u._id);
+            }
+        }
+
         res.json(users);
     } catch (error) {
         console.error(error);
@@ -215,11 +441,18 @@ router.get('/role/:role', protect, authorize('super-admin', 'admin', 'student'),
 router.get('/:id', protect, async (req, res) => {
     try {
         const user = await User.findById(req.params.id).select('-password').populate('addedBy', 'name email');
-        if (user) {
-            res.json(user);
-        } else {
-            res.status(404).json({ message: 'User not found' });
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
         }
+
+        const userObj = user.toObject();
+
+        // Attach assignments for admin users
+        if (user.role === 'admin') {
+            userObj.assignments = await getFacultyAssignments(user._id);
+        }
+
+        res.json(userObj);
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Server error' });
@@ -236,24 +469,33 @@ router.get('/:id/faculty', protect, authorize('super-admin', 'admin'), async (re
             return res.status(404).json({ message: 'Student not found' });
         }
 
-        const query = { role: 'admin' };
-        
-        // Always scope by student's department to prevent cross-dept matches
+        // Find faculty via FacultyAssignment
+        const matchConditions = [];
         if (student.department) {
-            query.department = student.department;
-        }
-
-        if (student.domain) {
-            const domains = student.domain.split(',').map(d => d.trim()).filter(Boolean);
-            if (domains.length > 0) {
-                const escapedDomains = domains.map(d => d.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&'));
-                query.domain = { $regex: escapedDomains.join('|'), $options: 'i' };
+            if (student.domain) {
+                const domains = student.domain.split(',').map(d => d.trim()).filter(Boolean);
+                domains.forEach(d => {
+                    matchConditions.push({ department: student.department, domain: d });
+                });
             } else {
-                query.domain = student.domain;
+                matchConditions.push({ department: student.department });
             }
         }
 
-        const faculty = await User.find(query).select('-password').sort({ name: 1 });
+        if (matchConditions.length === 0) {
+            return res.json([]);
+        }
+
+        const assignments = await FacultyAssignment.find({ $or: matchConditions }).lean();
+        const facultyIds = [...new Set(assignments.map(a => a.faculty.toString()))];
+
+        const faculty = await User.find({ _id: { $in: facultyIds } }).select('-password').sort({ name: 1 }).lean();
+        
+        // Attach assignments to each faculty
+        for (const f of faculty) {
+            f.assignments = await getFacultyAssignments(f._id);
+        }
+
         res.json(faculty);
     } catch (error) {
         console.error(error);
@@ -262,7 +504,7 @@ router.get('/:id/faculty', protect, authorize('super-admin', 'admin'), async (re
 });
 
 // @route   GET /api/users/:id/students
-// @desc    Get students managed by a faculty member (same dept & domain)
+// @desc    Get students managed by a faculty member (all assigned dept/domains)
 // @access  Private / Super-Admin & Admin
 router.get('/:id/students', protect, authorize('super-admin', 'admin'), async (req, res) => {
     try {
@@ -271,24 +513,12 @@ router.get('/:id/students', protect, authorize('super-admin', 'admin'), async (r
             return res.status(404).json({ message: 'Faculty not found' });
         }
 
-        const query = { role: 'student' };
+        // Use FacultyAssignment to find all relevant students
+        const assignments = await getFacultyAssignments(faculty._id);
+        const query = buildStudentQueryFromAssignments(assignments);
 
-        // Always scope by faculty's department to prevent cross-dept matches
-        if (faculty.department) {
-            query.department = faculty.department;
-        }
-
-        // Match students by domain if faculty has one
-        if (faculty.domain) {
-            const domains = faculty.domain.split(',').map(d => d.trim()).filter(Boolean);
-            if (domains.length > 0) {
-                // Escape special Regex characters for each domain and join with OR pattern
-                const escapedDomains = domains.map(d => d.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&'));
-                query.domain = { $regex: escapedDomains.join('|'), $options: 'i' };
-            } else {
-                // Fallback to strict match if parsing fails
-                query.domain = faculty.domain;
-            }
+        if (!query) {
+            return res.json([]);
         }
 
         const students = await User.find(query).select('-password').sort({ name: 1 });
@@ -352,11 +582,16 @@ router.get('/domain/:domain', protect, authorize('super-admin'), async (req, res
             ...query
         }).select('-password');
 
-        // Faculty assigned to this domain
-        const faculty = await User.find({
-            role: 'admin',
-            ...query
-        }).select('-password');
+        // Faculty assigned to this domain — via FacultyAssignment
+        const assignmentQuery = { domain };
+        if (dept) assignmentQuery.department = dept;
+        const assignments = await FacultyAssignment.find(assignmentQuery).lean();
+        const facultyIds = [...new Set(assignments.map(a => a.faculty.toString()))];
+        const faculty = await User.find({ _id: { $in: facultyIds } }).select('-password').lean();
+        
+        for (const f of faculty) {
+            f.assignments = await getFacultyAssignments(f._id);
+        }
 
         res.json({ students, faculty });
     } catch (error) {
@@ -364,6 +599,10 @@ router.get('/domain/:domain', protect, authorize('super-admin'), async (req, res
         res.status(500).json({ message: 'Server error' });
     }
 });
+
+// ═══════════════════════════════════════════════════════════════════
+// DELETE USER
+// ═══════════════════════════════════════════════════════════════════
 
 // @route   DELETE /api/users/:id
 // @desc    Delete a user
@@ -378,48 +617,29 @@ router.delete('/:id', protect, authorize('super-admin', 'admin'), async (req, re
             return res.status(403).json({ message: 'Cannot delete super-admin' });
         }
 
-        // Admin (Faculty) authorization check: ensure the user being deleted is a student of their domain
+        // Admin (Faculty) authorization check
         if (req.user.role === 'admin') {
             if (user.role !== 'student') {
                 return res.status(403).json({ message: 'You can only delete students' });
             }
 
-            const faculty = await User.findById(req.user.id);
-            if (!faculty) return res.status(403).json({ message: 'Faculty not found' });
-
-            let allowed = false;
-            // Strict domain check matching the GET logic
-            if (faculty.domain && user.domain) {
-                const fDomains = faculty.domain.split(',').map(d => d.trim().toLowerCase());
-                const sDomains = user.domain.split(',').map(d => d.trim().toLowerCase());
-                allowed = sDomains.some(sd => fDomains.includes(sd));
-            } else if (faculty.department && user.department) {
-                allowed = faculty.department.toLowerCase() === user.department.toLowerCase();
-            }
-
+            const allowed = await facultyOwnsStudent(req.user.id, user);
             if (!allowed) {
                 return res.status(403).json({ message: 'You cannot delete a student outside of your assigned domains' });
             }
         }
 
-        // If the user being deleted is an admin (faculty), delete their assigned students
+        // If the user being deleted is an admin (faculty), delete their assignments and assigned students
         if (user.role === 'admin') {
-            const query = { role: 'student' };
-            // Match students by domain if faculty has one
-            if (user.domain) {
-                const domains = user.domain.split(',').map(d => d.trim()).filter(Boolean);
-                if (domains.length > 0) {
-                    const escapedDomains = domains.map(d => d.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&'));
-                    query.domain = { $regex: escapedDomains.join('|'), $options: 'i' };
-                } else {
-                    query.domain = user.domain;
-                }
-            } else if (user.department) {
-                query.department = user.department;
+            const assignments = await getFacultyAssignments(user._id);
+            const studentQuery = buildStudentQueryFromAssignments(assignments);
+
+            if (studentQuery) {
+                await User.deleteMany(studentQuery);
             }
 
-            // Delete all matched students
-            await User.deleteMany(query);
+            // Delete all assignments
+            await FacultyAssignment.deleteMany({ faculty: user._id });
         }
 
         await User.findByIdAndDelete(req.params.id);
@@ -429,6 +649,10 @@ router.delete('/:id', protect, authorize('super-admin', 'admin'), async (req, re
         res.status(500).json({ message: 'Server error' });
     }
 });
+
+// ═══════════════════════════════════════════════════════════════════
+// UPDATE USER
+// ═══════════════════════════════════════════════════════════════════
 
 // @route   PUT /api/users/:id
 // @desc    Update a user
@@ -443,18 +667,8 @@ router.put('/:id', protect, authorize('super-admin', 'admin'), async (req, res) 
         // Admin (Faculty) authorization check
         if (req.user.role === 'admin') {
             if (user.role !== 'student') return res.status(403).json({ message: 'You can only modify students' });
-            const faculty = await User.findById(req.user.id);
-            if (!faculty) return res.status(403).json({ message: 'Faculty not found' });
 
-            let allowed = false;
-            if (faculty.domain && user.domain) {
-                const fDomains = faculty.domain.split(',').map(d => d.trim().toLowerCase());
-                const sDomains = user.domain.split(',').map(d => d.trim().toLowerCase());
-                allowed = sDomains.some(sd => fDomains.includes(sd));
-            } else if (faculty.department && user.department) {
-                allowed = faculty.department.toLowerCase() === user.department.toLowerCase();
-            }
-
+            const allowed = await facultyOwnsStudent(req.user.id, user);
             if (!allowed) return res.status(403).json({ message: 'You cannot edit a student outside of your assigned domains' });
         }
 
@@ -484,6 +698,10 @@ router.put('/:id', protect, authorize('super-admin', 'admin'), async (req, res) 
     }
 });
 
+// ═══════════════════════════════════════════════════════════════════
+// REPLACE USER
+// ═══════════════════════════════════════════════════════════════════
+
 // @route   POST /api/users/admin/:id/replace
 // @desc    Replace a faculty member — delete old, create new
 // @access  Private / Super-Admin
@@ -507,7 +725,11 @@ router.post('/admin/:id/replace', protect, authorize('super-admin'), async (req,
             return res.status(400).json({ message: 'Email already in use' });
         }
 
-        // Delete old faculty
+        // Get old assignments to transfer
+        const oldAssignments = await getFacultyAssignments(oldUser._id);
+
+        // Delete old faculty and their assignments
+        await FacultyAssignment.deleteMany({ faculty: oldUser._id });
         await User.findByIdAndDelete(req.params.id);
 
         // Create replacement
@@ -522,10 +744,40 @@ router.post('/admin/:id/replace', protect, authorize('super-admin'), async (req,
             name,
             department,
             phone,
-            domain,
+            domain: domain || '',
         });
 
         if (newUser) {
+            // Re-create all old assignments for the new user, plus the new one
+            const assignmentSet = new Set();
+
+            // Transfer old assignments
+            for (const a of oldAssignments) {
+                const key = `${a.department}|||${a.domain || ''}`;
+                if (!assignmentSet.has(key)) {
+                    assignmentSet.add(key);
+                    try {
+                        await FacultyAssignment.create({
+                            faculty: newUser._id,
+                            department: a.department,
+                            domain: a.domain || '',
+                        });
+                    } catch (e) { if (e.code !== 11000) throw e; }
+                }
+            }
+
+            // Add the new assignment (if different from old ones)
+            const newKey = `${department}|||${domain || ''}`;
+            if (!assignmentSet.has(newKey)) {
+                try {
+                    await FacultyAssignment.create({
+                        faculty: newUser._id,
+                        department,
+                        domain: domain || '',
+                    });
+                } catch (e) { if (e.code !== 11000) throw e; }
+            }
+
             await sendCredentialsEmail(email, 'Admin', email, unhashedPassword, department, domain, name);
 
             await Notification.create({
@@ -535,10 +787,13 @@ router.post('/admin/:id/replace', protect, authorize('super-admin'), async (req,
                 actorRole: 'super-admin',
             });
 
+            const allAssignments = await getFacultyAssignments(newUser._id);
+
             res.status(201).json({
                 _id: newUser._id,
                 email: newUser.email,
                 role: newUser.role,
+                assignments: allAssignments,
                 message: 'Faculty replaced. Credentials email is being sent to the new member.',
             });
         } else {
@@ -562,19 +817,7 @@ router.post('/student/:id/replace', protect, authorize('super-admin', 'admin'), 
 
         // Admin authorization check
         if (req.user.role === 'admin') {
-            const faculty = await User.findById(req.user.id);
-            if (!faculty) return res.status(403).json({ message: 'Faculty not found' });
-
-            // Ensure old user is from their domain
-            let allowed = false;
-            if (faculty.domain && oldUser.domain) {
-                const fDomains = faculty.domain.split(',').map(d => d.trim().toLowerCase());
-                const sDomains = oldUser.domain.split(',').map(d => d.trim().toLowerCase());
-                allowed = sDomains.some(sd => fDomains.includes(sd));
-            } else if (faculty.department && oldUser.department) {
-                allowed = faculty.department.toLowerCase() === oldUser.department.toLowerCase();
-            }
-
+            const allowed = await facultyOwnsStudent(req.user.id, oldUser);
             if (!allowed) return res.status(403).json({ message: 'Cannot replace a student outside your domains' });
         }
 

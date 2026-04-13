@@ -186,11 +186,19 @@ export default function MyProfile() {
                         <div className="text-center sm:text-left">
                             <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                                 <h2 className="text-xl sm:text-2xl font-bold text-primary">{displayName}</h2>
-                                {profile?.domain && (
+                                {profile?.assignments?.length > 0 ? (
+                                    <div className="flex flex-wrap gap-1.5 justify-center sm:justify-start">
+                                        {profile.assignments.map(a => (
+                                            <span key={a._id} className="inline-flex items-center gap-1 bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full text-[11px] font-semibold">
+                                                {a.department}{a.domain ? ` → ${a.domain}` : ""}
+                                            </span>
+                                        ))}
+                                    </div>
+                                ) : profile?.domain ? (
                                     <span className="inline-flex items-center gap-1.5 bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap">
                                         Assigned Domain(s): {profile.domain}
                                     </span>
-                                )}
+                                ) : null}
                             </div>
                             <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 mt-2 text-sm text-muted-foreground min-w-0">
                                 <span className="flex items-center gap-1.5 justify-center sm:justify-start min-w-0 truncate" title={profile?.email}>
@@ -260,7 +268,11 @@ export default function MyProfile() {
                                 } />
                                 {profile?.regNo && <InfoItem label="Registration No." value={profile.regNo} />}
                                 {profile?.year && <InfoItem label="Current Year" value={profile.year} />}
-                                {profile?.domain && <InfoItem label="Domain" value={profile.domain} />}
+                                {profile?.assignments?.length > 0 ? (
+                                    <InfoItem label="Assignments" value={profile.assignments.map(a => `${a.department}${a.domain ? ' → ' + a.domain : ''}`).join('; ')} />
+                                ) : profile?.domain ? (
+                                    <InfoItem label="Domain" value={profile.domain} />
+                                ) : null}
                                 {profile?.addedBy && (
                                     <InfoItem label="Added By" value={`${profile.addedBy.name || profile.addedBy.email} (Faculty)`} />
                                 )}

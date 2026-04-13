@@ -144,9 +144,9 @@ export default function UserProfile() {
             <div className="flex-1 text-center sm:text-left w-full">
               <h1 className="text-2xl sm:text-3xl font-bold text-[#1e3c72] mb-1">{displayName}</h1>
               <p className="text-muted-foreground mb-4">
-                {isFaculty && user.department ? `${user.department} Faculty` : ''}
+                {isFaculty && user.assignments?.length > 0 ? `${[...new Set(user.assignments.map(a => a.department))].join(', ')} Faculty` : isFaculty && user.department ? `${user.department} Faculty` : ''}
                 {isStudent && user.department ? `${user.department} Student` : ''}
-                {!user.department ? user.role.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase()) : ''}
+                {!user.department && !user.assignments?.length ? user.role.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase()) : ''}
               </p>
 
               {/* Meta grid */}
@@ -232,19 +232,35 @@ export default function UserProfile() {
               )}
             </div>
 
-            <div className="bg-slate-50 p-3.5 rounded-xl border-l-[3px] border-blue-600">
-              <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Department</p>
-              <p className="font-semibold text-foreground">{user.department || 'N/A'} <span className="text-[10px] text-gray-400 font-normal ml-1">(Unchangeable)</span></p>
-            </div>
-            {(isFaculty || isStudent) && user.domain && (
-              <div className="bg-slate-50 p-3.5 rounded-xl border-l-[3px] border-blue-600">
-                <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Domain / Expertise</p>
-                <span className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-sm font-medium">
-                  <Globe className="h-3.5 w-3.5" />
-                  {user.domain}
-                </span>
-                {isEditing && <span className="text-[10px] text-gray-400 block mt-1">(Unchangeable)</span>}
+            {isFaculty && user.assignments?.length > 0 ? (
+              <div className="bg-slate-50 p-3.5 rounded-xl border-l-[3px] border-blue-600 sm:col-span-2">
+                <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">Faculty Assignments</p>
+                <div className="flex flex-wrap gap-2">
+                  {user.assignments.map(a => (
+                    <span key={a._id} className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-sm font-medium border border-blue-100">
+                      <Building2 className="h-3.5 w-3.5 text-blue-500" />
+                      {a.department}{a.domain ? ` → ${a.domain}` : ""}
+                    </span>
+                  ))}
+                </div>
               </div>
+            ) : (
+              <>
+                <div className="bg-slate-50 p-3.5 rounded-xl border-l-[3px] border-blue-600">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Department</p>
+                  <p className="font-semibold text-foreground">{user.department || 'N/A'} <span className="text-[10px] text-gray-400 font-normal ml-1">(Unchangeable)</span></p>
+                </div>
+                {(isFaculty || isStudent) && user.domain && (
+                  <div className="bg-slate-50 p-3.5 rounded-xl border-l-[3px] border-blue-600">
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Domain / Expertise</p>
+                    <span className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-sm font-medium">
+                      <Globe className="h-3.5 w-3.5" />
+                      {user.domain}
+                    </span>
+                    {isEditing && <span className="text-[10px] text-gray-400 block mt-1">(Unchangeable)</span>}
+                  </div>
+                )}
+              </>
             )}
             {isStudent && (
               <>

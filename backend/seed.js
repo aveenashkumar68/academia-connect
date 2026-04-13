@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
 import User from './models/User.js';
 import Department from './models/Department.js';
+import FacultyAssignment from './models/FacultyAssignment.js';
 
 export const seedSuperAdmin = async () => {
     try {
@@ -58,4 +59,48 @@ export const seedDepartments = async () => {
         console.error('Error seeding departments:', error);
     }
 };
+
+/**
+ * One-time migration: for every admin user that has department/domain set
+ * but no FacultyAssignment entries, create an initial assignment from their
+ * existing fields. This ensures backward-compat with legacy data.
+ */
+export const migrateFacultyAssignments = async () => {
+    try {
+        const admins = await User.find({ role: 'admin', department: { $ne: null, $ne: '' } });
+
+        let migrated = 0;
+        for (const admin of admins) {
+            // Skip if this admin already has assignments
+            const existingCount = await FacultyAssignment.countDocuments({ faculty: admin._id });
+            if (existingCount > 0) continue;
+
+            // Parse domain — it may be comma-separated for legacy data
+            const domains = admin.domain
+                ? admin.domain.split(',').map(d => d.trim()).filter(Boolean)
+                : [''];
+
+            for (const domain of domains) {
+                try {
+                    await FacultyAssignment.create({
+                        faculty: admin._id,
+                        department: admin.department,
+                        domain: domain,
+                    });
+                    migrated++;
+                } catch (dupErr) {
+                    // Ignore duplicate key errors — assignment already exists
+                    if (dupErr.code !== 11000) throw dupErr;
+                }
+            }
+        }
+
+        if (migrated > 0) {
+            console.log(`Migrated ${migrated} faculty assignment(s) from legacy data`);
+        }
+    } catch (error) {
+        console.error('Error migrating faculty assignments:', error);
+    }
+};
+
 

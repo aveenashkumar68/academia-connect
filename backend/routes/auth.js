@@ -2,6 +2,7 @@ import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
+import FacultyAssignment from '../models/FacultyAssignment.js';
 import { protect } from '../middleware/auth.js';
 import cloudinary from '../config/cloudinary.js';
 import upload from '../middleware/upload.js';
@@ -29,7 +30,7 @@ router.post('/login', async (req, res) => {
             user.tokenVersion = (user.tokenVersion || 0) + 1;
             await user.save();
 
-            res.json({
+            const responseData = {
                 _id: user._id,
                 email: user.email,
                 role: user.role,
@@ -38,7 +39,14 @@ router.post('/login', async (req, res) => {
                 domain: user.domain,
                 profilePicture: user.profilePicture,
                 token: generateToken(user._id, user.role, user.tokenVersion),
-            });
+            };
+
+            // Attach all assignments for faculty (admin) users
+            if (user.role === 'admin') {
+                responseData.assignments = await FacultyAssignment.find({ faculty: user._id }).lean();
+            }
+
+            res.json(responseData);
         } else {
             res.status(401).json({ message: 'Invalid email or password' });
         }
