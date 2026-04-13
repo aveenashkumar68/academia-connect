@@ -33,13 +33,8 @@ router.post('/login', async (req, res) => {
             console.log(`[DEBUG] Old Version: ${oldVersion}, New Version: ${user.tokenVersion}`);
             
             await user.save();
-<<<<<<< HEAD
-
-            const responseData = {
-=======
             console.log(`[DEBUG] User saved. Token generated with Version: ${user.tokenVersion}`);
-            res.json({
->>>>>>> 57d086ddea8c5c9173384f4249b1ac4dd75d0efa
+            const responseData = {
                 _id: user._id,
                 email: user.email,
                 role: user.role,
