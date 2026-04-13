@@ -5,7 +5,7 @@ import api from "@/lib/api";
 import { toast } from "sonner";
 import {
     User, KeyRound, ClipboardList, Pencil, Check, Mail, Phone,
-    Building2, MapPin, Calendar, Shield, Camera, Eye, EyeOff, Loader2
+    Building2, MapPin, Calendar, Shield, Camera, Eye, EyeOff, Loader2, Trash2, X
 } from "lucide-react";
 
 const TABS = [
@@ -31,6 +31,7 @@ export default function MyProfile() {
 
     // Avatar upload
     const [uploading, setUploading] = useState(false);
+    const [removing, setRemoving] = useState(false);
 
     // Fetch profile
     useEffect(() => {
@@ -149,6 +150,28 @@ export default function MyProfile() {
         }
     };
 
+    // Avatar remove handler
+    const handleAvatarRemove = async () => {
+        if (!profile?.profilePicture) return;
+        setRemoving(true);
+        try {
+            await api.delete('/auth/avatar');
+            setProfile(prev => ({ ...prev, profilePicture: '' }));
+
+            // Sync localStorage so all dashboards update
+            const existingUser = JSON.parse(localStorage.getItem("user") || "{}");
+            const updatedUser = { ...existingUser, profilePicture: '' };
+            localStorage.setItem("user", JSON.stringify(updatedUser));
+            window.dispatchEvent(new Event("user-updated"));
+
+            toast.success('Profile picture removed!');
+        } catch (err) {
+            toast.error(err.response?.data?.message || 'Failed to remove picture');
+        } finally {
+            setRemoving(false);
+        }
+    };
+
     const fmtDate = (d) => d ? new Date(d).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) : "—";
 
     if (loading) return <DashboardLayout><div className="text-center py-20 text-muted-foreground">Loading...</div></DashboardLayout>;
@@ -181,6 +204,20 @@ export default function MyProfile() {
                                 )}
                                 <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} disabled={uploading} />
                             </label>
+                            {profile?.profilePicture && (
+                                <button
+                                    onClick={handleAvatarRemove}
+                                    disabled={removing}
+                                    className="absolute top-0 right-0 h-7 w-7 rounded-full bg-destructive text-white flex items-center justify-center cursor-pointer border-2 border-card hover:brightness-110 transition"
+                                    title="Remove photo"
+                                >
+                                    {removing ? (
+                                        <Loader2 className="h-3 w-3 animate-spin" />
+                                    ) : (
+                                        <X className="h-3 w-3" />
+                                    )}
+                                </button>
+                            )}
                         </div>
                         {/* Info */}
                         <div className="text-center sm:text-left">

@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import User from '../models/User.js';
 import Department from '../models/Department.js';
 import Notification from '../models/Notification.js';
+import StudentUpdate from '../models/StudentUpdate.js';
 import { protect, authorize } from '../middleware/auth.js';
 import { sendCredentialsEmail } from '../utils/mailer.js';
 import crypto from 'crypto';
@@ -629,6 +630,118 @@ router.post('/student/:id/replace', protect, authorize('super-admin', 'admin'), 
         } else {
             res.status(400).json({ message: 'Failed to create replacement' });
         }
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   GET /api/users/public/stats
+// @desc    Get counts of students and faculty
+// @access  Private
+router.get('/public/stats', protect, async (req, res) => {
+    try {
+        const studentCount = await User.countDocuments({ role: 'student' });
+        const facultyCount = await User.countDocuments({ role: 'admin' });
+        res.json({ students: studentCount, faculty: facultyCount });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   PATCH /api/users/profile/status
+// @desc    Toggle user active status
+// @access  Private
+router.patch('/profile/status', protect, async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id);
+        if (!user) return res.status(404).json({ message: 'User not found' });
+        user.isActive = !user.isActive;
+        await user.save();
+        res.json({ isActive: user.isActive, message: `Profile ${user.isActive ? 'activated' : 'deactivated'}` });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   GET /api/users/student/updates/my
+// @desc    Get all progress updates for the logged-in student
+// @access  Private / Student
+router.get('/student/updates/my', protect, authorize('student'), async (req, res) => {
+    try {
+        const updates = await StudentUpdate.find({ student: req.user.id })
+            .sort({ createdAt: -1 });
+        res.json(updates);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   POST /api/users/student/updates
+// @desc    Submit a daily progress update
+// @access  Private / Student
+router.post('/student/updates', protect, authorize('student'), async (req, res) => {
+    try {
+        const { date, type, value } = req.body;
+        
+        // Create a new update instead of upserting to allow multiple entries per day
+        const update = await StudentUpdate.create({
+            student: req.user.id,
+            date,
+            type,
+            value
+        });
+
+        res.status(201).json(update);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   PUT /api/users/student/updates/:id
+// @desc    Update a specific progress entry
+// @access  Private / Student
+router.put('/student/updates/:id', protect, authorize('student'), async (req, res) => {
+    try {
+        let update = await StudentUpdate.findById(req.params.id);
+        if (!update) return res.status(404).json({ message: 'Update not found' });
+        
+        // Ensure user owns the update
+        if (update.student.toString() !== req.user.id) {
+            return res.status(403).json({ message: 'Unauthorized' });
+        }
+
+        const { value, date } = req.body;
+        if (value) update.value = value;
+        if (date) update.date = date;
+
+        await update.save();
+        res.json(update);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// @route   DELETE /api/users/student/updates/:id
+// @desc    Delete a specific progress entry
+// @access  Private / Student
+router.delete('/student/updates/:id', protect, authorize('student'), async (req, res) => {
+    try {
+        const update = await StudentUpdate.findById(req.params.id);
+        if (!update) return res.status(404).json({ message: 'Update not found' });
+
+        // Ensure user owns the update
+        if (update.student.toString() !== req.user.id) {
+            return res.status(403).json({ message: 'Unauthorized' });
+        }
+
+        await StudentUpdate.findByIdAndDelete(req.params.id);
+        res.json({ message: 'Update removed' });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Server error' });

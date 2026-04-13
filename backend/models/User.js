@@ -27,6 +27,7 @@ const userSchema = new mongoose.Schema({
   profilePicture: { type: String }, // Cloudinary URL
   addedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // Track who created this user
   tokenVersion: { type: Number, default: 0 }, // Track active session state
+  isActive: { type: Boolean, default: true }, // For student profile visibility
 }, { timestamps: true });
 
 export default mongoose.model('User', userSchema);
