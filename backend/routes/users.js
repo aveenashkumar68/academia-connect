@@ -138,9 +138,7 @@ router.post('/admin', protect, authorize('super-admin'), async (req, res) => {
         }
 
         // ─── Case 2: Brand new user ───
-        const unhashedPassword = generateRandomPassword();
-        console.log(unhashedPassword);
-        const salt = await bcrypt.genSalt(10);
+        const unhashedPassword = generateRandomPassword();        const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(unhashedPassword, salt);
 
         const user = await User.create({

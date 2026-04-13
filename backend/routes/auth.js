@@ -28,13 +28,8 @@ router.post('/login', async (req, res) => {
         if (user && (await bcrypt.compare(password, user.password))) {
             // Increment token version to invalidate previous sessions (multi-device management)
             const oldVersion = user.tokenVersion || 0;
-            user.tokenVersion = Number(oldVersion) + 1;
-            console.log(`[DEBUG] Logging in user: ${user.email}`);
-            console.log(`[DEBUG] Old Version: ${oldVersion}, New Version: ${user.tokenVersion}`);
-            
-            await user.save();
-            console.log(`[DEBUG] User saved. Token generated with Version: ${user.tokenVersion}`);
-            const responseData = {
+            user.tokenVersion = Number(oldVersion) + 1;            
+            await user.save();            const responseData = {
                 _id: user._id,
                 email: user.email,
                 role: user.role,

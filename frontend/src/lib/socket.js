@@ -25,9 +25,7 @@ export function connectSocket(userId) {
     s.off('connect');
 
     // Emit user_online on every (re)connect so the server always knows we're online
-    s.on('connect', () => {
-        console.log('[Socket] Connected, registering user_online:', userId);
-        s.emit('user_online', userId);
+    s.on('connect', () => {        s.emit('user_online', userId);
     });
 
     if (!s.connected) {

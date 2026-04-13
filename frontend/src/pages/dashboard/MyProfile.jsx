@@ -306,7 +306,10 @@ export default function MyProfile() {
                                 {profile?.regNo && <InfoItem label="Registration No." value={profile.regNo} />}
                                 {profile?.year && <InfoItem label="Current Year" value={profile.year} />}
                                 {profile?.assignments?.length > 0 ? (
-                                    <InfoItem label="Assignments" value={profile.assignments.map(a => `${a.department}${a.domain ? ' → ' + a.domain : ''}`).join('; ')} />
+                                    <>
+                                        <InfoItem label="Assignments" value={profile.assignments.map(a => `${a.department}${a.domain ? ' → ' + a.domain : ''}`).join('; ')} />
+                                        <InfoItem label="Total Departments" value={[...new Set(profile.assignments.map(a => a.department))].length} />
+                                    </>
                                 ) : profile?.domain ? (
                                     <InfoItem label="Domain" value={profile.domain} />
                                 ) : null}

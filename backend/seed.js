@@ -19,9 +19,7 @@ export const seedSuperAdmin = async () => {
                 name: 'Super Admin',
             });
 
-            await newSuperAdmin.save();
-            console.log('Super-Admin seeded successfully: superadmin@example.com / superadmin123');
-        }
+            await newSuperAdmin.save();        }
     } catch (error) {
         console.error('Error seeding super-admin:', error);
     }
@@ -53,9 +51,7 @@ export const seedDepartments = async () => {
             { name: 'PCT', domains: ['Petrochemical Production', 'PCT - R&D', 'Medicines from Petrochemicals', 'LPG', 'Refining & Processing', 'Distillery Prodn & Applications', 'Petrochemicals for Agriculture', 'IOT & AI DS in PCT'] }
         ];
 
-        await Department.insertMany(depts);
-        console.log('Departments seeded successfully');
-    } catch (error) {
+        await Department.insertMany(depts);    } catch (error) {
         console.error('Error seeding departments:', error);
     }
 };
@@ -95,9 +91,7 @@ export const migrateFacultyAssignments = async () => {
             }
         }
 
-        if (migrated > 0) {
-            console.log(`Migrated ${migrated} faculty assignment(s) from legacy data`);
-        }
+        if (migrated > 0) {        }
     } catch (error) {
         console.error('Error migrating faculty assignments:', error);
     }

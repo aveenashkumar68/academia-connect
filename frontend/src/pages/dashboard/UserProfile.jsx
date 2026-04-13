@@ -234,7 +234,12 @@ export default function UserProfile() {
 
             {isFaculty && user.assignments?.length > 0 ? (
               <div className="bg-slate-50 p-3.5 rounded-xl border-l-[3px] border-blue-600 sm:col-span-2">
-                <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">Faculty Assignments</p>
+                <div className="flex items-center gap-3 mb-2">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Faculty Assignments</p>
+                  <span className="text-[10px] font-bold text-blue-800 bg-blue-100 px-2 py-0.5 rounded-full">
+                    Total Departments: {[...new Set(user.assignments.map(a => a.department))].length}
+                  </span>
+                </div>
                 <div className="flex flex-wrap gap-2">
                   {user.assignments.map(a => (
                     <span key={a._id} className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-sm font-medium border border-blue-100">

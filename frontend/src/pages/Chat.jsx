@@ -82,9 +82,7 @@ export default function Chat() {
     const socket = connectSocket(user._id);
     socketRef.current = socket;
 
-    socket.on("online_users", (users) => {
-      console.log("[Socket] Online users updated:", users);
-      setOnlineUsers(users);
+    socket.on("online_users", (users) => {      setOnlineUsers(users);
     });
 
     socket.on("new_message", (msg) => {
@@ -113,9 +111,7 @@ export default function Chat() {
     });
 
     // Debug: log disconnects
-    socket.on("disconnect", (reason) => {
-      console.log("[Socket] Disconnected:", reason);
-    });
+    socket.on("disconnect", (reason) => {    });
 
     return () => {
       socket.off("online_users");

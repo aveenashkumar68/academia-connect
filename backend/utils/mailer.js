@@ -12,13 +12,7 @@ if (!SENDGRID_API_KEY) {
     console.error('SENDGRID_API_KEY is not set. Emails will NOT be sent.');
 } else {
     sgMail.setApiKey(SENDGRID_API_KEY);
-    console.log('SendGrid configured successfully');
 }
-
-// console.log('Email Config:', {
-//     from: `${FROM_NAME} <${FROM_EMAIL}>`,
-//     apiKey: SENDGRID_API_KEY ? '****' + SENDGRID_API_KEY.slice(-4) : '⚠️ MISSING',
-// });
 
 /**
  * Send credentials email (awaitable — returns true/false).
@@ -29,9 +23,7 @@ export const sendCredentialsEmail = async (to, role, email, password, department
         return false;
     }
 
-    try {
-        console.log(`Sending credentials email to ${to} via SendGrid...`);
-
+    try {
         const msg = {
             to,
             from: { email: FROM_EMAIL, name: FROM_NAME },
@@ -97,9 +89,7 @@ export const sendCredentialsEmail = async (to, role, email, password, department
         };
 
         const [response] = await sgMail.send(msg);
-        const statusCode = response.statusCode;
-        console.log(`Email sent to ${to} (status: ${statusCode})`);
-
+        const statusCode = response.statusCode;
         if (statusCode !== 202) {
             console.error(`Unexpected SendGrid status ${statusCode} for ${to}. Email may not be delivered.`);
         }
