@@ -25,10 +25,14 @@ router.post('/login', async (req, res) => {
         const user = await User.findOne({ email });
 
         if (user && (await bcrypt.compare(password, user.password))) {
-            // Increment token version to invalidate previous sessions
-            user.tokenVersion = (user.tokenVersion || 0) + 1;
+            // Increment token version to invalidate previous sessions (multi-device management)
+            const oldVersion = user.tokenVersion || 0;
+            user.tokenVersion = Number(oldVersion) + 1;
+            console.log(`[DEBUG] Logging in user: ${user.email}`);
+            console.log(`[DEBUG] Old Version: ${oldVersion}, New Version: ${user.tokenVersion}`);
+            
             await user.save();
-
+            console.log(`[DEBUG] User saved. Token generated with Version: ${user.tokenVersion}`);
             res.json({
                 _id: user._id,
                 email: user.email,
@@ -174,6 +178,41 @@ router.post('/avatar', protect, upload.single('avatar'), async (req, res) => {
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Failed to upload image' });
+    }
+});
+
+// @route   DELETE /api/auth/avatar
+// @desc    Remove profile picture from Cloudinary and clear DB field
+// @access  Private
+router.delete('/avatar', protect, async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id);
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        if (!user.profilePicture) {
+            return res.status(400).json({ message: 'No profile picture to remove' });
+        }
+
+        // Extract the public_id from the Cloudinary URL
+        // URL format: https://res.cloudinary.com/<cloud>/image/upload/v<ver>/<folder>/<public_id>.<ext>
+        try {
+            const urlParts = user.profilePicture.split('/');
+            const folderAndFile = urlParts.slice(-2); // ['mayaa-avatars', 'user_xxx.jpg']
+            const fileWithoutExt = folderAndFile[1].split('.')[0];
+            const publicId = `${folderAndFile[0]}/${fileWithoutExt}`;
+            await cloudinary.uploader.destroy(publicId);
+        } catch (cloudErr) {
+            console.error('Cloudinary delete error (non-fatal):', cloudErr);
+            // Continue even if Cloudinary delete fails — still clear the DB field
+        }
+
+        user.profilePicture = '';
+        await user.save();
+
+        res.json({ message: 'Profile picture removed' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Failed to remove profile picture' });
     }
 });
 

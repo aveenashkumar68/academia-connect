@@ -82,7 +82,10 @@ export default function Chat() {
     const socket = connectSocket(user._id);
     socketRef.current = socket;
 
-    socket.on("online_users", (users) => setOnlineUsers(users));
+    socket.on("online_users", (users) => {
+      console.log("[Socket] Online users updated:", users);
+      setOnlineUsers(users);
+    });
 
     socket.on("new_message", (msg) => {
       setMessages((prev) => {
@@ -95,7 +98,10 @@ export default function Chat() {
     socket.on("user_typing", ({ senderId }) => {
       if (selectedUserRef.current?._id === senderId) setTyping(true);
     });
-    socket.on("user_stop_typing", () => setTyping(false));
+
+    socket.on("user_stop_typing", ({ senderId }) => {
+      if (selectedUserRef.current?._id === senderId) setTyping(false);
+    });
 
     // Group real-time
     socket.on("group_new_message", (msg) => {
@@ -106,17 +112,27 @@ export default function Chat() {
       fetchGroups();
     });
 
+    // Debug: log disconnects
+    socket.on("disconnect", (reason) => {
+      console.log("[Socket] Disconnected:", reason);
+    });
+
     return () => {
       socket.off("online_users");
       socket.off("new_message");
       socket.off("user_typing");
       socket.off("user_stop_typing");
       socket.off("group_new_message");
+      socket.off("disconnect");
       disconnectSocket();
     };
   }, [user, fetchContacts]);
 
-  useEffect(() => { selectedUserRef.current = selectedUser; }, [selectedUser]);
+  useEffect(() => {
+    selectedUserRef.current = selectedUser;
+    // Reset typing indicator when switching contacts
+    setTyping(false);
+  }, [selectedUser]);
 
   useEffect(() => {
     if (!selectedUser) return;
