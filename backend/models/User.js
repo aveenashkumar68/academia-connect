@@ -28,6 +28,10 @@ const userSchema = new mongoose.Schema({
   addedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // Track who created this user
   tokenVersion: { type: Number, default: 0 }, // Track active session state
   isActive: { type: Boolean, default: true }, // For student profile visibility
+  // Password reset OTP fields
+  resetOtp: { type: String },
+  resetOtpExpiry: { type: Date },
+  resetOtpAttempts: { type: Number, default: 0 },
 }, { timestamps: true });
 
 export default mongoose.model('User', userSchema);
