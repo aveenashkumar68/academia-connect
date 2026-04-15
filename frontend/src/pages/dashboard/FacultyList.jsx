@@ -320,13 +320,13 @@ export default function FacultyList() {
           </div>
           <h2 className="text-xl sm:text-2xl font-bold text-foreground">Faculty Management</h2>
         </div>
-        <div className="flex flex-wrap gap-2 sm:gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto">
           {isSuperAdmin && (
-            <Button onClick={() => { setIsAddOpen(true); setExistingFacultyInfo(null); setFormData({ name: "", email: "", department: "", phone: "", domain: "" }); setSelectedDept(null); }} className="bg-[#1e3c72] hover:bg-[#2a5298] text-white text-xs sm:text-sm">
+            <Button onClick={() => { setIsAddOpen(true); setExistingFacultyInfo(null); setFormData({ name: "", email: "", department: "", phone: "", domain: "" }); setSelectedDept(null); }} className="bg-[#1e3c72] hover:bg-[#2a5298] text-white text-xs sm:text-sm flex-1 sm:flex-none">
               <UserPlus className="h-4 w-4 mr-1.5 sm:mr-2" /> Add / Assign Faculty
             </Button>
           )}
-          <Button variant="outline" onClick={() => fetchFaculty()} className="text-xs sm:text-sm">
+          <Button variant="outline" onClick={() => fetchFaculty()} className="text-xs sm:text-sm flex-1 sm:flex-none">
             <RefreshCw className="h-4 w-4 mr-1.5 sm:mr-2" /> Refresh
           </Button>
         </div>
@@ -405,22 +405,22 @@ export default function FacultyList() {
 
                   {/* Actions */}
                   {isSuperAdmin && (
-                    <div className="flex gap-2 pt-2 border-t border-border/30">
-                      <Button variant="outline" size="sm" className="flex-1 min-h-[40px] text-xs"
+                    <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border/30">
+                      <Button variant="outline" size="sm" className="min-h-[40px] text-xs justify-start px-3"
                         onClick={() => navigate(`/dashboard/admin/user/${f._id}`)}>
-                        <Eye className="h-3.5 w-3.5 mr-1.5" /> View
+                        <Eye className="h-3.5 w-3.5 mr-2" /> View
                       </Button>
-                      <Button variant="outline" size="sm" className="flex-1 min-h-[40px] text-xs text-blue-600 border-blue-200 hover:bg-blue-50"
+                      <Button variant="outline" size="sm" className="min-h-[40px] text-xs text-blue-600 border-blue-200 hover:bg-blue-50 justify-start px-3"
                         onClick={() => openManageAssignments(f)}>
-                        <Settings2 className="h-3.5 w-3.5 mr-1.5" /> Assignments
+                        <Settings2 className="h-3.5 w-3.5 mr-2" /> Manage
                       </Button>
-                      <Button variant="outline" size="sm" className="flex-1 min-h-[40px] text-xs text-amber-600 border-amber-200 hover:bg-amber-50"
+                      <Button variant="outline" size="sm" className="min-h-[40px] text-xs text-amber-600 border-amber-200 hover:bg-amber-50 justify-start px-3"
                         onClick={() => openReplace(f)}>
-                        <ArrowLeftRight className="h-3.5 w-3.5 mr-1.5" /> Replace
+                        <ArrowLeftRight className="h-3.5 w-3.5 mr-2" /> Replace
                       </Button>
-                      <Button variant="outline" size="sm" className="min-h-[40px] text-xs text-destructive border-destructive/30 hover:bg-destructive/10 px-3"
+                      <Button variant="outline" size="sm" className="min-h-[40px] text-xs text-destructive border-destructive/30 hover:bg-destructive/10 justify-start px-3"
                         onClick={() => handleDelete(f._id, f.name)}>
-                        <Trash2 className="h-3.5 w-3.5" />
+                        <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete
                       </Button>
                     </div>
                   )}
@@ -561,10 +561,10 @@ export default function FacultyList() {
                 disabled={!!existingFacultyInfo}
                 className="h-10" />
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 w-full">
               <Label className="text-sm">Department *</Label>
               <Select value={formData.department} onValueChange={handleDeptChange}>
-                <SelectTrigger className="h-10"><SelectValue placeholder="Select Department" /></SelectTrigger>
+                <SelectTrigger className="h-10 w-full"><SelectValue placeholder="Select Department" /></SelectTrigger>
                 <SelectContent>
                   {departments.map(d => (
                     <SelectItem key={d._id} value={d.name}>{d.name}</SelectItem>
@@ -572,10 +572,10 @@ export default function FacultyList() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 w-full">
               <Label className="text-sm">Domain / Expertise</Label>
               <Select value={formData.domain} onValueChange={(v) => setFormData({ ...formData, domain: v })} disabled={!selectedDept}>
-                <SelectTrigger className="h-10"><SelectValue placeholder={selectedDept ? "Select Domain" : "Select Dept First"} /></SelectTrigger>
+                <SelectTrigger className="h-10 w-full"><SelectValue placeholder={selectedDept ? "Select Domain" : "Select Dept First"} /></SelectTrigger>
                 <SelectContent>
                   {selectedDept?.domains.map(d => (
                     <SelectItem key={d} value={d}>{d}</SelectItem>
