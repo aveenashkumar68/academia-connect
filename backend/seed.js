@@ -19,7 +19,8 @@ export const seedSuperAdmin = async () => {
                 name: 'Super Admin',
             });
 
-            await newSuperAdmin.save();        }
+            await newSuperAdmin.save();
+        }
     } catch (error) {
         console.error('Error seeding super-admin:', error);
     }
@@ -41,7 +42,7 @@ export const seedDepartments = async () => {
             { name: 'Civil', domains: ['Structural Engineering', 'Smart Cities', 'Construction Management', 'Surveying & GIS', 'Sustainable Design', 'Transportation Systems', 'Environmental Engineering'] },
             { name: 'ECE', domains: ['Embedded Systems', 'VLSI Design', 'Internet of Things (IoT)', 'Robotics', 'Communication Networks', 'Signal Processing', 'Automation Systems'] },
             { name: 'EEE', domains: ['Power Systems', 'Renewable Energy', 'Electric Vehicles', 'Smart Grids', 'Industrial Automation', 'Control Systems', 'Energy Management'] },
-            { name: 'Food Tech', domains: ['Food Processing & Inspection', 'Quality Control & Waste Mgt', 'Food Packaging', 'Food Safety & Hygiene Practices', 'Nutraceuticals & HACCP', 'Food Biotechnology', 'Product Development', 'Food Microbiology'] },
+            { name: 'Food Tech', domains: ['Dairy Processing Industry', 'Bakery Industry', 'Confectionery Industry', 'F&V Processing Industry', 'Oil Processing Industry', 'Meat & Poultry Processing Industry', 'Species Industry'] },
             { name: 'IT', domains: ['Cloud Computing', 'Full Stack Development', 'Mobile Application Development', 'Cyber Security', 'UI/UX Design', 'Data Analytics', 'DevOps'] },
             { name: 'Mech Engg', domains: ['CAD/CAM', 'Thismal Engineering', 'Robotics', 'Manufacturing Systems', 'Mechatronics', '3D Printing', 'Automotive Systems', 'Industrial Design'] },
             { name: 'M.Tech CSE', domains: ['Advanced AI', 'Cloud Architecture', 'Distributed Computing', 'Research Methodologies', 'Data Engineering', 'Deep Learning', 'DevOps', 'Quantum Computing'] },
@@ -51,7 +52,8 @@ export const seedDepartments = async () => {
             { name: 'PCT', domains: ['Petrochemical Production', 'PCT - R&D', 'Medicines from Petrochemicals', 'LPG', 'Refining & Processing', 'Distillery Prodn & Applications', 'Petrochemicals for Agriculture', 'IOT & AI DS in PCT'] }
         ];
 
-        await Department.insertMany(depts);    } catch (error) {
+        await Department.insertMany(depts);
+    } catch (error) {
         console.error('Error seeding departments:', error);
     }
 };
@@ -91,7 +93,8 @@ export const migrateFacultyAssignments = async () => {
             }
         }
 
-        if (migrated > 0) {        }
+        if (migrated > 0) {
+        }
     } catch (error) {
         console.error('Error migrating faculty assignments:', error);
     }
